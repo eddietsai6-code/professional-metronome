@@ -334,42 +334,36 @@ summary {
 }
 
 .pattern-panel h2,
-.rhythm-library,
-.library-action,
-.chain-strip,
+.note-library,
+.note-chain-bar,
+.note-chain,
 .pattern-details,
 .pattern-panel > button {
   grid-column: 1 / -1;
 }
 
-.rhythm-library {
+.note-library {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  max-height: 324px;
-  overflow: auto;
-  padding: 10px;
-  border: 1px solid rgba(121, 242, 93, 0.24);
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.28);
-  scrollbar-color: var(--crt-green-dim) transparent;
 }
 
-.rhythm-card {
-  min-height: 112px;
-  padding: 12px;
+.note-card {
+  min-height: 96px;
+  padding: 10px;
   display: grid;
-  align-content: space-between;
-  gap: 7px;
+  place-items: center;
+  gap: 5px;
   border-color: rgba(121, 242, 93, 0.28);
   background:
     linear-gradient(180deg, rgba(121, 242, 93, 0.11), rgba(121, 242, 93, 0.035)),
     #071009;
   color: var(--crt-green);
-  text-align: left;
+  text-align: center;
 }
 
-.rhythm-card[aria-selected="true"] {
+.note-card:hover,
+.note-card:focus-visible {
   border-color: var(--crt-green);
   background:
     linear-gradient(180deg, rgba(121, 242, 93, 0.22), rgba(121, 242, 93, 0.06)),
@@ -379,46 +373,28 @@ summary {
     0 0 14px rgba(121, 242, 93, 0.28);
 }
 
-.rhythm-signature {
-  font-size: 1.72rem;
+.note-symbol {
+  font-size: 1.75rem;
+  font-weight: 900;
   line-height: 1;
 }
 
-.rhythm-name,
-.rhythm-caption {
+.note-name,
+.note-value {
   overflow-wrap: anywhere;
 }
 
-.rhythm-name {
+.note-name {
   color: var(--text);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
 }
 
-.rhythm-caption {
+.note-value {
   color: rgba(186, 236, 177, 0.78);
   font-size: 0.72rem;
   font-weight: 700;
 }
 
-.library-action {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.34fr);
-  gap: 10px;
-  align-items: end;
-}
-
-#selectedRhythmName {
-  display: block;
-  min-height: 44px;
-  padding: 11px 12px;
-  border: 1px solid rgba(121, 242, 93, 0.2);
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.32);
-  color: var(--text);
-  font-weight: 800;
-}
-
-#addSelectedRhythm,
 .play-button {
   border-color: rgba(255, 255, 255, 0.22);
   background: linear-gradient(180deg, var(--control-orange), #c76530);
@@ -428,39 +404,58 @@ summary {
     0 8px 18px rgba(0, 0, 0, 0.28);
 }
 
-.chain-strip {
-  min-height: 48px;
+.note-chain-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#clearNoteChain {
+  min-height: 34px;
+  padding: 0 12px;
+  background: #242529;
+  color: var(--muted);
+}
+
+.note-chain {
+  min-height: 74px;
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding: 8px;
+  align-items: center;
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.28);
 }
 
-.chain-empty {
+.note-chain-empty {
   align-self: center;
   color: rgba(186, 236, 177, 0.68);
   font-size: 0.84rem;
   font-weight: 800;
 }
 
-.chain-chip {
+.note-chip {
   flex: 0 0 auto;
-  min-height: 34px;
-  max-width: 210px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 58px;
+  min-height: 52px;
   border-color: rgba(121, 242, 93, 0.25);
   background: #0d180f;
   color: var(--crt-green);
+  font-size: 1rem;
+  font-weight: 900;
 }
 
-.chain-chip.is-active {
+.note-chip:hover,
+.note-chip:focus-visible {
   border-color: var(--control-orange);
   color: #fff2e8;
   background: #2a1b13;
+}
+
+.note-chip.is-rest {
+  color: var(--muted);
 }
 
 .pattern-details {
@@ -512,8 +507,13 @@ summary {
 
 .transport {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(88px, 0.55fr));
+  grid-template-columns: minmax(160px, 1fr) minmax(88px, 0.55fr);
   gap: 10px;
+}
+
+#tapTempo,
+#timerToggle {
+  display: none;
 }
 
 #tapTempo,
@@ -560,6 +560,13 @@ summary {
   align-items: end;
 }
 
+.tool-grid,
+.polyrhythm-panel,
+.practice-panel,
+.preset-panel {
+  display: none;
+}
+
 input[type="checkbox"] {
   width: 44px;
   accent-color: var(--crt-green);
@@ -589,9 +596,17 @@ input[type="range"] {
   .library-action,
   .topline,
   .transport,
-  .tempo-controls,
   .preset-panel {
     grid-template-columns: 1fr;
+  }
+
+  .transport,
+  .tempo-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr);
+  }
+
+  .tempo-controls {
+    grid-template-columns: 52px minmax(0, 1fr) 52px;
   }
 
   .device-header {
@@ -634,9 +649,8 @@ input[type="range"] {
     min-height: 82px;
   }
 
-  .rhythm-library {
-    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-    max-height: 270px;
+  .note-library {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

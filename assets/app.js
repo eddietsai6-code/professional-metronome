@@ -1,4 +1,4 @@
-import {
+﻿import {
   ACCENT_LEVELS,
   APP_VERSION,
   PATTERN_SEGMENTS_MAX,
@@ -21,243 +21,16 @@ const LOOKAHEAD_SECONDS = 0.1;
 const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
 
-function groupedBeats(groups) {
-  const beats = [];
-  let cursor = 0;
-  for (const groupSize of groups) {
-    for (let index = 0; index < groupSize; index += 1) {
-      beats.push({
-        index: cursor,
-        level: cursor === 0 ? "accent" : index === 0 ? "secondary" : "normal",
-      });
-      cursor += 1;
-    }
-  }
-  return beats;
-}
-
-const RHYTHM_LIBRARY = [
-  {
-    id: "straight-4-4",
-    name: "Straight 4/4",
-    signature: "4/4",
-    caption: "Quarter pulse",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "none",
-  },
-  {
-    id: "march-2-4",
-    name: "March 2/4",
-    signature: "2/4",
-    caption: "Two count",
-    bars: 1,
-    meter: { beatsPerBar: 2, beatUnit: 4 },
-    subdivision: "none",
-  },
-  {
-    id: "waltz-3-4",
-    name: "Waltz 3/4",
-    signature: "3/4",
-    caption: "Three count",
-    bars: 1,
-    meter: { beatsPerBar: 3, beatUnit: 4 },
-    subdivision: "none",
-  },
-  {
-    id: "five-four",
-    name: "Five 5/4",
-    signature: "5/4",
-    caption: "3 + 2",
-    bars: 1,
-    meter: { beatsPerBar: 5, beatUnit: 4, beats: groupedBeats([3, 2]) },
-    subdivision: "none",
-  },
-  {
-    id: "six-four",
-    name: "Broad 6/4",
-    signature: "6/4",
-    caption: "3 + 3",
-    bars: 1,
-    meter: { beatsPerBar: 6, beatUnit: 4, beats: groupedBeats([3, 3]) },
-    subdivision: "none",
-  },
-  {
-    id: "seven-four",
-    name: "Seven 7/4",
-    signature: "7/4",
-    caption: "4 + 3",
-    bars: 1,
-    meter: { beatsPerBar: 7, beatUnit: 4, beats: groupedBeats([4, 3]) },
-    subdivision: "none",
-  },
-  {
-    id: "compound-6-8",
-    name: "Compound 6/8",
-    signature: "6/8",
-    caption: "3 + 3",
-    bars: 1,
-    meter: { beatsPerBar: 6, beatUnit: 8, beats: groupedBeats([3, 3]) },
-    subdivision: "eighth",
-  },
-  {
-    id: "odd-5-8",
-    name: "Odd 5/8",
-    signature: "5/8",
-    caption: "2 + 3",
-    bars: 1,
-    meter: { beatsPerBar: 5, beatUnit: 8, beats: groupedBeats([2, 3]) },
-    subdivision: "eighth",
-  },
-  {
-    id: "odd-7-8",
-    name: "Odd 7/8",
-    signature: "7/8",
-    caption: "2 + 2 + 3",
-    bars: 1,
-    meter: { beatsPerBar: 7, beatUnit: 8, beats: groupedBeats([2, 2, 3]) },
-    subdivision: "eighth",
-  },
-  {
-    id: "odd-8-8",
-    name: "Grouped 8/8",
-    signature: "8/8",
-    caption: "3 + 3 + 2",
-    bars: 1,
-    meter: { beatsPerBar: 8, beatUnit: 8, beats: groupedBeats([3, 3, 2]) },
-    subdivision: "eighth",
-  },
-  {
-    id: "compound-9-8",
-    name: "Compound 9/8",
-    signature: "9/8",
-    caption: "3 + 3 + 3",
-    bars: 1,
-    meter: { beatsPerBar: 9, beatUnit: 8, beats: groupedBeats([3, 3, 3]) },
-    subdivision: "eighth",
-  },
-  {
-    id: "odd-10-8",
-    name: "Odd 10/8",
-    signature: "10/8",
-    caption: "3 + 3 + 2 + 2",
-    bars: 1,
-    meter: {
-      beatsPerBar: 10,
-      beatUnit: 8,
-      beats: groupedBeats([3, 3, 2, 2]),
-    },
-    subdivision: "eighth",
-  },
-  {
-    id: "odd-11-8",
-    name: "Odd 11/8",
-    signature: "11/8",
-    caption: "3 + 3 + 3 + 2",
-    bars: 1,
-    meter: {
-      beatsPerBar: 11,
-      beatUnit: 8,
-      beats: groupedBeats([3, 3, 3, 2]),
-    },
-    subdivision: "eighth",
-  },
-  {
-    id: "compound-12-8",
-    name: "Compound 12/8",
-    signature: "12/8",
-    caption: "Four groups",
-    bars: 1,
-    meter: {
-      beatsPerBar: 12,
-      beatUnit: 8,
-      beats: groupedBeats([3, 3, 3, 3]),
-    },
-    subdivision: "eighth",
-  },
-  {
-    id: "triplet-grid",
-    name: "Triplet Grid",
-    signature: "3LET",
-    caption: "Triplet subdivision",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "triplet",
-  },
-  {
-    id: "sixteenth-grid",
-    name: "Sixteenth Grid",
-    signature: "16TH",
-    caption: "Four per beat",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "sixteenth",
-  },
-  {
-    id: "quintuplet-grid",
-    name: "Quintuplet",
-    signature: "5LET",
-    caption: "Five per beat",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "quintuplet",
-  },
-  {
-    id: "sextuplet-grid",
-    name: "Sextuplet",
-    signature: "6LET",
-    caption: "Six per beat",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "sextuplet",
-  },
-  {
-    id: "septuplet-grid",
-    name: "Septuplet",
-    signature: "7LET",
-    caption: "Seven per beat",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "septuplet",
-  },
-  {
-    id: "thirtysecond-grid",
-    name: "Thirty-second",
-    signature: "32ND",
-    caption: "Eight per beat",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "thirtysecond",
-  },
-  {
-    id: "dotted-pulse",
-    name: "Dotted Pulse",
-    signature: "DOT",
-    caption: "Long-short feel",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "dotted",
-  },
-  {
-    id: "shuffle-4-4",
-    name: "Shuffle 4/4",
-    signature: "SHF",
-    caption: "Swing pulse",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "shuffle",
-  },
-  {
-    id: "swung-sixteenth",
-    name: "Swung 16th",
-    signature: "SW16",
-    caption: "Loose sixteenth",
-    bars: 1,
-    meter: { beatsPerBar: 4, beatUnit: 4 },
-    subdivision: "swung-sixteenth",
-  },
+const NOTE_LIBRARY = [
+  { id: "whole", name: "Whole", symbol: "𝅝", valueLabel: "1", beats: 4, rest: false },
+  { id: "half", name: "Half", symbol: "𝅗𝅥", valueLabel: "1/2", beats: 2, rest: false },
+  { id: "quarter", name: "Quarter", symbol: "♩", valueLabel: "1/4", beats: 1, rest: false },
+  { id: "eighth", name: "Eighth", symbol: "♪", valueLabel: "1/8", beats: 0.5, rest: false },
+  { id: "sixteenth", name: "Sixteenth", symbol: "♬", valueLabel: "1/16", beats: 0.25, rest: false },
+  { id: "dotted-quarter", name: "Dotted quarter", symbol: "♩.", valueLabel: "1/4.", beats: 1.5, rest: false },
+  { id: "triplet-eighth", name: "Triplet eighth", symbol: "♪3", valueLabel: "1/8T", beats: 1 / 3, rest: false },
+  { id: "quarter-rest", name: "Quarter rest", symbol: "𝄽", valueLabel: "rest", beats: 1, rest: true },
 ];
-
 document.documentElement.dataset.appVersion = APP_VERSION;
 
 const elements = {
@@ -271,8 +44,9 @@ const elements = {
   patternEnabled: document.querySelector("#patternEnabled"),
   patternSegments: document.querySelector("#patternSegments"),
   addPatternSegment: document.querySelector("#addPatternSegment"),
-  addSelectedRhythm: document.querySelector("#addSelectedRhythm"),
-  chainStrip: document.querySelector("#chainStrip"),
+  clearNoteChain: document.querySelector("#clearNoteChain"),
+  noteChain: document.querySelector("#noteChain"),
+  noteLibrary: document.querySelector("#noteLibrary"),
   playToggle: document.querySelector("#playToggle"),
   polyrhythmEnabled: document.querySelector("#polyrhythmEnabled"),
   polyrhythmPulses: document.querySelector("#polyrhythmPulses"),
@@ -280,8 +54,6 @@ const elements = {
   presetList: document.querySelector("#presetList"),
   presetName: document.querySelector("#presetName"),
   savePreset: document.querySelector("#savePreset"),
-  rhythmLibrary: document.querySelector("#rhythmLibrary"),
-  selectedRhythmName: document.querySelector("#selectedRhythmName"),
   soundStyle: document.querySelector("#soundStyle"),
   statusText: document.querySelector("#statusText"),
   subdivisionReadout: document.querySelector("#subdivisionReadout"),
@@ -318,7 +90,7 @@ const app = {
   scheduledIndex: 0,
   scheduledNodes: new Set(),
   schedulerTimer: null,
-  selectedRhythmId: RHYTHM_LIBRARY[0].id,
+  noteChain: [],
   state: createDefaultState(),
   startedAt: 0,
   tapTimes: [],
@@ -341,120 +113,84 @@ function getSelectedSubdivisionLabel() {
   return getSubdivisionLabel(elements.subdivisionSelect.value);
 }
 
-function getSelectedRhythm() {
-  return (
-    RHYTHM_LIBRARY.find((rhythm) => rhythm.id === app.selectedRhythmId) ||
-    RHYTHM_LIBRARY[0]
-  );
+function getNoteById(id) {
+  return NOTE_LIBRARY.find((note) => note.id === id) || NOTE_LIBRARY[2];
 }
 
-function renderSelectedRhythm() {
-  const rhythm = getSelectedRhythm();
-  elements.selectedRhythmName.value = rhythm.name;
-  elements.selectedRhythmName.textContent = rhythm.name;
-}
-
-function createRhythmCardText(className, text) {
+function createNoteText(className, text) {
   const span = document.createElement("span");
   span.className = className;
   span.textContent = text;
   return span;
 }
 
-function renderRhythmLibrary() {
-  elements.rhythmLibrary.replaceChildren();
+function renderNoteLibrary() {
+  elements.noteLibrary.replaceChildren();
 
-  for (const rhythm of RHYTHM_LIBRARY) {
+  for (const note of NOTE_LIBRARY) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "rhythm-card";
-    button.setAttribute("data-rhythm-id", rhythm.id);
+    button.className = "note-card";
+    button.setAttribute("data-note-id", note.id);
     button.setAttribute("role", "option");
-    button.setAttribute(
-      "aria-selected",
-      String(rhythm.id === app.selectedRhythmId)
-    );
+    button.setAttribute("aria-label", `Add ${note.name}`);
     button.append(
-      createRhythmCardText("rhythm-signature", rhythm.signature),
-      createRhythmCardText("rhythm-name", rhythm.name),
-      createRhythmCardText("rhythm-caption", rhythm.caption)
+      createNoteText("note-symbol", note.symbol),
+      createNoteText("note-name", note.name),
+      createNoteText("note-value", note.valueLabel)
     );
-    button.addEventListener("click", () => {
-      app.selectedRhythmId = rhythm.id;
-      renderRhythmLibrary();
-      renderSelectedRhythm();
-      setStatus(`Selected ${rhythm.name}`);
-    });
-    button.addEventListener("dblclick", addSelectedRhythmToChain);
-    elements.rhythmLibrary.append(button);
+    button.addEventListener("click", () => addNoteToChain(note.id));
+    elements.noteLibrary.append(button);
   }
 }
 
-function renderChainStrip() {
-  elements.chainStrip.replaceChildren();
+function renderNoteChain() {
+  elements.noteChain.replaceChildren();
 
-  if (!app.state.patternChain.enabled) {
+  if (app.noteChain.length === 0) {
     const empty = document.createElement("span");
-    empty.className = "chain-empty";
-    empty.textContent = "Select rhythm cards to build a chain";
-    elements.chainStrip.append(empty);
+    empty.className = "note-chain-empty";
+    empty.textContent = "Tap notes to build a chain";
+    elements.noteChain.append(empty);
     return;
   }
 
-  app.state.patternChain.segments.forEach((segment, index) => {
+  app.noteChain.forEach((item, index) => {
+    const note = getNoteById(item.noteId);
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "chain-chip";
-    chip.classList.toggle("is-active", index === app.activeSegmentIndex);
-    chip.textContent = `${index + 1}. ${segment.name} x${segment.bars}`;
+    chip.className = "note-chip";
+    chip.classList.toggle("is-rest", note.rest);
+    chip.textContent = note.symbol;
+    chip.setAttribute("aria-label", `Remove ${note.name}`);
     chip.addEventListener("click", () => {
-      app.activeSegmentIndex = index;
-      render();
-      setStatus(`Preview ${segment.name}`);
+      removeNoteFromChain(index);
     });
-    elements.chainStrip.append(chip);
+    elements.noteChain.append(chip);
   });
 }
 
-function addSelectedRhythmToChain() {
-  const rhythm = getSelectedRhythm();
-  const existingSegments = app.state.patternChain.enabled
-    ? app.state.patternChain.segments
-    : [];
-
-  if (existingSegments.length >= PATTERN_SEGMENTS_MAX) {
-    setStatus(`Chain supports up to ${PATTERN_SEGMENTS_MAX} segments`);
-    return;
-  }
-
-  const nextIndex = existingSegments.length;
-  const nextSegment = createPatternSegment(
-    {
-      id: `${rhythm.id}-${nextIndex + 1}`,
-      name: rhythm.name,
-      bars: rhythm.bars,
-      tempo: app.state.tempo,
-      tempoMode: app.state.tempoMode,
-      meter: rhythm.meter,
-      subdivision: rhythm.subdivision,
-    },
-    app.state,
-    nextIndex
-  );
-
-  app.activeSegmentIndex = nextIndex;
-  app.state = createDefaultState({
-    ...readStateFromControls(),
-    patternChain: {
-      enabled: true,
-      segments: [...existingSegments, nextSegment],
-    },
-  });
-  syncControlsFromState();
-  renderPatternSegments();
+function addNoteToChain(noteId) {
+  const note = getNoteById(noteId);
+  app.noteChain = [...app.noteChain, { noteId: note.id }];
   refreshPlaybackSchedule();
   render();
-  setStatus(`Added ${rhythm.name}`);
+  setStatus(`Added ${note.name}`);
+}
+
+function removeNoteFromChain(index) {
+  const note = getNoteById(app.noteChain[index]?.noteId);
+  app.noteChain = app.noteChain.filter((_, itemIndex) => itemIndex !== index);
+  refreshPlaybackSchedule();
+  render();
+  setStatus(`Removed ${note.name}`);
+}
+
+function clearNoteChain() {
+  app.noteChain = [];
+  refreshPlaybackSchedule();
+  render();
+  setStatus("Chain cleared");
 }
 
 function readStateFromControls() {
@@ -644,7 +380,7 @@ function render() {
   }
   elements.pendulum.hidden = app.state.visualMode !== "pendulum";
   renderBeatGrid();
-  renderChainStrip();
+  renderNoteChain();
 }
 
 function updateFromControls() {
@@ -1074,6 +810,65 @@ function cancelScheduledNodes() {
   app.scheduledNodes.clear();
 }
 
+function hasNoteChain() {
+  return app.noteChain.length > 0;
+}
+
+function createNoteChainSchedule({ startTime, cycles, cycleOffset = 0 }) {
+  const quarterDuration = getBeatDurationSeconds({
+    tempo: app.state.tempo,
+    tempoMode: app.state.tempoMode,
+    beatUnit: 4,
+  });
+  const events = [];
+  let currentTime = startTime;
+
+  for (let cycleIndex = 0; cycleIndex < cycles; cycleIndex += 1) {
+    const barIndex = cycleOffset + cycleIndex;
+    const barStart = currentTime;
+    let beatPosition = 0;
+
+    for (let noteIndex = 0; noteIndex < app.noteChain.length; noteIndex += 1) {
+      const note = getNoteById(app.noteChain[noteIndex].noteId);
+      const duration = note.beats * quarterDuration;
+      events.push({
+        time: currentTime,
+        barIndex,
+        beatIndex: noteIndex,
+        subdivisionIndex: 0,
+        kind: "main",
+        level: noteIndex === 0 ? "accent" : "normal",
+        audible: !note.rest,
+        isCountIn: false,
+        mutedByTrainer: false,
+        visual: true,
+        segmentIndex: -1,
+        segmentName: "Note Chain",
+        beatsPerBar: app.noteChain.length,
+        beatUnit: 4,
+        noteId: note.id,
+        noteValue: note.valueLabel,
+        barEndTime: currentTime + duration,
+      });
+      currentTime += duration;
+      beatPosition += note.beats;
+    }
+
+    const lastEvent = events[events.length - 1];
+    if (lastEvent) {
+      lastEvent.barEndTime = currentTime;
+    }
+    for (let index = events.length - app.noteChain.length; index < events.length; index += 1) {
+      if (events[index]?.barIndex === barIndex) {
+        events[index].barEndTime = currentTime;
+        events[index].beatsPerBar = Math.max(1, Math.ceil(beatPosition));
+      }
+    }
+  }
+
+  return events;
+}
+
 function rebuildSchedule({ includeCountIn = true } = {}) {
   const context = getAudioContext();
   if (!context) {
@@ -1086,26 +881,37 @@ function rebuildSchedule({ includeCountIn = true } = {}) {
 
   const countInBars = includeCountIn ? app.state.countInBars : 0;
   app.startedAt = context.currentTime + 0.08;
-  app.schedule = createSchedule({
-    state: createDefaultState({
-      ...app.state,
-      countInBars: includeCountIn ? app.state.countInBars : 0,
-    }),
-    bars: SCHEDULE_BARS,
-    startTime: app.startedAt,
-  });
+  app.schedule = hasNoteChain()
+    ? createNoteChainSchedule({
+        startTime: app.startedAt,
+        cycles: SCHEDULE_BARS,
+      })
+    : createSchedule({
+        state: createDefaultState({
+          ...app.state,
+          countInBars: includeCountIn ? app.state.countInBars : 0,
+        }),
+        bars: SCHEDULE_BARS,
+        startTime: app.startedAt,
+      });
   app.scheduledIndex = 0;
   app.nextScheduleTime = getScheduleEndTime(app.schedule, app.startedAt);
   app.nextBarIndex = SCHEDULE_BARS;
 }
 
 function appendScheduleWindow() {
-  const appendedEvents = createSchedule({
-    state: createDefaultState({ ...app.state, countInBars: 0 }),
-    bars: SCHEDULE_BARS,
-    startTime: app.nextScheduleTime,
-    barOffset: app.nextBarIndex,
-  });
+  const appendedEvents = hasNoteChain()
+    ? createNoteChainSchedule({
+        startTime: app.nextScheduleTime,
+        cycles: SCHEDULE_BARS,
+        cycleOffset: app.nextBarIndex,
+      })
+    : createSchedule({
+        state: createDefaultState({ ...app.state, countInBars: 0 }),
+        bars: SCHEDULE_BARS,
+        startTime: app.nextScheduleTime,
+        barOffset: app.nextBarIndex,
+      });
 
   app.schedule = [...app.schedule, ...appendedEvents];
   app.nextScheduleTime = getScheduleEndTime(
@@ -1335,7 +1141,7 @@ function wireControls() {
   }
 
   elements.addPatternSegment.addEventListener("click", addPatternSegment);
-  elements.addSelectedRhythm.addEventListener("click", addSelectedRhythmToChain);
+  elements.clearNoteChain.addEventListener("click", clearNoteChain);
   elements.patternSegments.addEventListener("input", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("change", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("click", handlePatternSegmentClick);
@@ -1347,8 +1153,7 @@ function wireControls() {
 loadPresets();
 wireControls();
 syncControlsFromState();
-renderRhythmLibrary();
-renderSelectedRhythm();
+renderNoteLibrary();
 renderPatternSegments();
 renderPresets();
 render();

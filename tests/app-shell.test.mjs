@@ -39,10 +39,9 @@ const requiredIds = [
   "timerToggle",
   "pendulum",
   "patternEnabled",
-  "rhythmLibrary",
-  "selectedRhythmName",
-  "addSelectedRhythm",
-  "chainStrip",
+  "noteLibrary",
+  "noteChain",
+  "clearNoteChain",
   "patternSegments",
   "addPatternSegment",
   "polyrhythmEnabled",
@@ -134,22 +133,24 @@ test("app imports core scheduler helpers for browser playback", () => {
 
 test("app wires pattern chain and polyrhythm controls", () => {
   assert.match(appJs, /function renderPatternSegments\(\) \{/);
-  assert.match(appJs, /function renderRhythmLibrary\(\) \{/);
-  assert.match(appJs, /function renderChainStrip\(\) \{/);
-  assert.match(appJs, /function addSelectedRhythmToChain\(\) \{/);
+  assert.match(appJs, /function renderNoteLibrary\(\) \{/);
+  assert.match(appJs, /function renderNoteChain\(\) \{/);
+  assert.match(appJs, /function addNoteToChain\(/);
   assert.match(appJs, /function updatePatternSegment\(/);
   assert.match(appJs, /patternEnabled/);
   assert.match(appJs, /polyrhythmEnabled/);
 });
 
-test("rhythm library exposes card-based composition UI", () => {
-  assert.match(html, /Rhythm Library/);
-  assert.match(html, /Add to chain/);
-  assert.match(html, /id=["']rhythmLibrary["']/);
-  assert.match(html, /id=["']chainStrip["']/);
-  assert.match(appJs, /const RHYTHM_LIBRARY = \[/);
-  assert.match(appJs, /selectedRhythmId:/);
-  assert.match(appJs, /data-rhythm-id/);
+test("note library exposes simple note-card composition UI", () => {
+  assert.match(html, /Note Library/);
+  assert.match(html, /id=["']noteLibrary["']/);
+  assert.match(html, /id=["']noteChain["']/);
+  assert.match(html, /id=["']clearNoteChain["']/);
+  assert.doesNotMatch(html, /Rhythm Library/);
+  assert.match(appJs, /const NOTE_LIBRARY = \[/);
+  assert.match(appJs, /noteChain:\s*\[\]/);
+  assert.match(appJs, /data-note-id/);
+  assert.doesNotMatch(appJs, /RHYTHM_LIBRARY/);
 });
 
 test("hardware-inspired interface classes are present", () => {
@@ -157,9 +158,9 @@ test("hardware-inspired interface classes are present", () => {
   assert.match(html, /class=["'][^"']*\brhythm-shell\b/);
   assert.match(styles, /--crt-green:/);
   assert.match(styles, /--control-orange:/);
-  assert.match(styles, /\.rhythm-library/);
-  assert.match(styles, /\.rhythm-card/);
-  assert.match(styles, /\.chain-strip/);
+  assert.match(styles, /\.note-library/);
+  assert.match(styles, /\.note-card/);
+  assert.match(styles, /\.note-chain/);
   assert.match(styles, /\.device-header/);
 });
 

@@ -45,6 +45,13 @@
 
       <section class="control-panel" aria-labelledby="transportHeading">
         <h2 id="transportHeading">Transport</h2>
+        <div class="transport">
+          <button id="playToggle" class="play-button" type="button">Play</button>
+          <button id="tapTempo" type="button">Tap</button>
+          <button id="muteToggle" type="button" aria-pressed="false">Mute</button>
+          <button id="timerToggle" type="button">Timer</button>
+        </div>
+
         <div class="tempo-controls">
           <button id="tempoDown" type="button" aria-label="Decrease tempo">-</button>
           <label>
@@ -52,13 +59,6 @@
             <input id="tempoInput" type="number" min="30" max="280" step="1" value="120" inputmode="numeric">
           </label>
           <button id="tempoUp" type="button" aria-label="Increase tempo">+</button>
-        </div>
-
-        <div class="transport">
-          <button id="playToggle" class="play-button" type="button">Play</button>
-          <button id="tapTempo" type="button">Tap</button>
-          <button id="muteToggle" type="button" aria-pressed="false">Mute</button>
-          <button id="timerToggle" type="button">Timer</button>
         </div>
       </section>
 
@@ -136,26 +136,23 @@
         </label>
       </section>
 
-      <section class="pattern-panel" aria-labelledby="patternHeading">
-        <h2 id="patternHeading">Rhythm Library</h2>
-        <label class="inline-toggle">
-          <span class="label">Loop chain</span>
-          <input id="patternEnabled" type="checkbox">
-        </label>
-        <div id="rhythmLibrary" class="rhythm-library" role="listbox" aria-label="Rhythm library"></div>
-        <div class="library-action">
-          <div>
-            <span class="label">Selected</span>
-            <output id="selectedRhythmName">Straight 4/4</output>
-          </div>
-          <button id="addSelectedRhythm" type="button">Add to chain</button>
+      <section class="pattern-panel note-panel" aria-labelledby="patternHeading">
+        <h2 id="patternHeading">Note Library</h2>
+        <div id="noteLibrary" class="note-library" role="listbox" aria-label="Note library"></div>
+        <div class="note-chain-bar">
+          <span class="label">Chain</span>
+          <button id="clearNoteChain" type="button">Clear</button>
         </div>
-        <div id="chainStrip" class="chain-strip" aria-label="Pattern chain"></div>
-        <details class="pattern-details" open>
-          <summary>Fine tune chain</summary>
+        <div id="noteChain" class="note-chain" aria-label="Note chain"></div>
+        <details class="pattern-details">
+          <summary>Advanced</summary>
+          <label class="inline-toggle">
+            <span class="label">Loop pattern</span>
+            <input id="patternEnabled" type="checkbox">
+          </label>
           <div id="patternSegments" class="pattern-segments" aria-label="Pattern chain segments"></div>
+          <button id="addPatternSegment" type="button">Add custom 7/8</button>
         </details>
-        <button id="addPatternSegment" type="button">Add custom 7/8</button>
       </section>
 
       <section class="polyrhythm-panel" aria-labelledby="polyrhythmHeading">

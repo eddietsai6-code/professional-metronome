@@ -13,7 +13,7 @@ This is a browser app that can be committed to GitHub and hosted as static files
 - Per-beat accent states: accent, secondary, normal, rest
 - Subdivisions: eighth, triplet, sixteenth, dotted feel
 - Expanded subdivisions: quintuplet, sextuplet, septuplet, thirty-second, shuffle, swung sixteenth
-- Card-based rhythm library with common, compound, odd-meter, and subdivision patterns
+- Simple note library for building a custom chain from note values and rests
 - Pattern chain playback, such as two bars of 4/4 followed by one bar of 7/8
 - Per-pattern tempo, meter, beat unit, subdivision, and loop bars
 - Polyrhythm overlays by bar or by beat, with 1 to 16 overlay pulses
@@ -25,7 +25,7 @@ This is a browser app that can be committed to GitHub and hosted as static files
 - Practice timer
 - Local presets stored in the browser
 - Keyboard shortcuts for stage-style operation
-- Responsive hardware-inspired interface for portrait and landscape web use
+- Minimal hardware-inspired interface for portrait and landscape web use
 
 ## Quick Start
 
