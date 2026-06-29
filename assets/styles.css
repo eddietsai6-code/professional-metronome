@@ -334,65 +334,40 @@ summary {
 }
 
 .pattern-panel h2,
-.note-library,
-.note-chain-bar,
-.note-chain,
+.beat-rhythm-editor,
 .pattern-details,
 .pattern-panel > button {
   grid-column: 1 / -1;
 }
 
-.note-library {
+.beat-rhythm-editor {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
   gap: 10px;
 }
 
-.note-card {
-  min-height: 96px;
+.beat-rhythm-row {
   padding: 10px;
   display: grid;
-  place-items: center;
-  gap: 5px;
+  gap: 8px;
   border-color: rgba(121, 242, 93, 0.28);
   background:
-    linear-gradient(180deg, rgba(121, 242, 93, 0.11), rgba(121, 242, 93, 0.035)),
+    linear-gradient(180deg, rgba(121, 242, 93, 0.09), rgba(121, 242, 93, 0.025)),
     #071009;
+}
+
+.beat-rhythm-row select {
+  min-height: 42px;
+  background: #0b120d;
   color: var(--crt-green);
-  text-align: center;
+  border-color: rgba(121, 242, 93, 0.34);
 }
 
-.note-card:hover,
-.note-card:focus-visible {
+.beat-rhythm-row:focus-within {
   border-color: var(--crt-green);
-  background:
-    linear-gradient(180deg, rgba(121, 242, 93, 0.22), rgba(121, 242, 93, 0.06)),
-    #081309;
   box-shadow:
-    inset 0 0 18px rgba(121, 242, 93, 0.2),
+    inset 0 0 18px rgba(121, 242, 93, 0.16),
     0 0 14px rgba(121, 242, 93, 0.28);
-}
-
-.note-symbol {
-  font-size: 1.75rem;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.note-name,
-.note-value {
-  overflow-wrap: anywhere;
-}
-
-.note-name {
-  color: var(--text);
-  font-size: 0.78rem;
-}
-
-.note-value {
-  color: rgba(186, 236, 177, 0.78);
-  font-size: 0.72rem;
-  font-weight: 700;
 }
 
 .play-button {
@@ -404,59 +379,6 @@ summary {
     0 8px 18px rgba(0, 0, 0, 0.28);
 }
 
-.note-chain-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-#clearNoteChain {
-  min-height: 34px;
-  padding: 0 12px;
-  background: #242529;
-  color: var(--muted);
-}
-
-.note-chain {
-  min-height: 74px;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px;
-  align-items: center;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.28);
-}
-
-.note-chain-empty {
-  align-self: center;
-  color: rgba(186, 236, 177, 0.68);
-  font-size: 0.84rem;
-  font-weight: 800;
-}
-
-.note-chip {
-  flex: 0 0 auto;
-  width: 58px;
-  min-height: 52px;
-  border-color: rgba(121, 242, 93, 0.25);
-  background: #0d180f;
-  color: var(--crt-green);
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.note-chip:hover,
-.note-chip:focus-visible {
-  border-color: var(--control-orange);
-  color: #fff2e8;
-  background: #2a1b13;
-}
-
-.note-chip.is-rest {
-  color: var(--muted);
-}
 
 .pattern-details {
   display: grid;
@@ -507,13 +429,8 @@ summary {
 
 .transport {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(88px, 0.55fr);
+  grid-template-columns: minmax(110px, 1fr) repeat(3, minmax(76px, 0.7fr));
   gap: 10px;
-}
-
-#tapTempo,
-#timerToggle {
-  display: none;
 }
 
 #tapTempo,
@@ -558,13 +475,6 @@ summary {
 .preset-panel {
   grid-template-columns: minmax(0, 1fr) 104px minmax(150px, 1fr);
   align-items: end;
-}
-
-.tool-grid,
-.polyrhythm-panel,
-.practice-panel,
-.preset-panel {
-  display: none;
 }
 
 input[type="checkbox"] {
@@ -649,7 +559,7 @@ input[type="range"] {
     min-height: 82px;
   }
 
-  .note-library {
+  .beat-rhythm-editor {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

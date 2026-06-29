@@ -21,15 +21,13 @@ const LOOKAHEAD_SECONDS = 0.1;
 const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
 
-const NOTE_LIBRARY = [
-  { id: "whole", name: "Whole", symbol: "\u{1D15D}", valueLabel: "1", beats: 4, rest: false },
-  { id: "half", name: "Half", symbol: "\u{1D15E}", valueLabel: "1/2", beats: 2, rest: false },
-  { id: "quarter", name: "Quarter", symbol: "\u2669", valueLabel: "1/4", beats: 1, rest: false },
-  { id: "eighth", name: "Eighth", symbol: "\u266A", valueLabel: "1/8", beats: 0.5, rest: false },
-  { id: "sixteenth", name: "Sixteenth", symbol: "\u266C", valueLabel: "1/16", beats: 0.25, rest: false },
-  { id: "dotted-quarter", name: "Dotted quarter", symbol: "\u2669.", valueLabel: "1/4.", beats: 1.5, rest: false },
-  { id: "triplet-eighth", name: "Triplet eighth", symbol: "\u266A3", valueLabel: "1/8T", beats: 1 / 3, rest: false },
-  { id: "quarter-rest", name: "Quarter rest", symbol: "\u{1D13D}", valueLabel: "rest", beats: 1, rest: true },
+const BEAT_RHYTHM_OPTIONS = [
+  { value: "inherit", label: "Follow global" },
+  { value: "quarter", label: "Quarter" },
+  { value: "eighth", label: "Eighth pair" },
+  { value: "triplet", label: "Triplet" },
+  { value: "sixteenth", label: "Sixteenth four" },
+  { value: "rest", label: "Rest" },
 ];
 document.documentElement.dataset.appVersion = APP_VERSION;
 
@@ -44,9 +42,7 @@ const elements = {
   patternEnabled: document.querySelector("#patternEnabled"),
   patternSegments: document.querySelector("#patternSegments"),
   addPatternSegment: document.querySelector("#addPatternSegment"),
-  clearNoteChain: document.querySelector("#clearNoteChain"),
-  noteChain: document.querySelector("#noteChain"),
-  noteLibrary: document.querySelector("#noteLibrary"),
+  beatRhythmEditor: document.querySelector("#beatRhythmEditor"),
   playToggle: document.querySelector("#playToggle"),
   polyrhythmEnabled: document.querySelector("#polyrhythmEnabled"),
   polyrhythmPulses: document.querySelector("#polyrhythmPulses"),
@@ -90,7 +86,6 @@ const app = {
   scheduledIndex: 0,
   scheduledNodes: new Set(),
   schedulerTimer: null,
-  noteChain: [],
   state: createDefaultState(),
   startedAt: 0,
   tapTimes: [],
@@ -113,84 +108,87 @@ function getSelectedSubdivisionLabel() {
   return getSubdivisionLabel(elements.subdivisionSelect.value);
 }
 
-function getNoteById(id) {
-  return NOTE_LIBRARY.find((note) => note.id === id) || NOTE_LIBRARY[2];
+function getBeatRhythmLabel(value) {
+  return (
+    BEAT_RHYTHM_OPTIONS.find((option) => option.value === value)?.label ||
+    "Follow global"
+  );
 }
 
-function createNoteText(className, text) {
-  const span = document.createElement("span");
-  span.className = className;
-  span.textContent = text;
-  return span;
-}
+function createBeatRhythmSelect(beat, index) {
+  const select = document.createElement("select");
+  select.dataset.beatRhythm = String(index);
+  select.setAttribute("aria-label", `Beat ${index + 1} rhythm`);
 
-function renderNoteLibrary() {
-  elements.noteLibrary.replaceChildren();
-
-  for (const note of NOTE_LIBRARY) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "note-card";
-    button.setAttribute("data-note-id", note.id);
-    button.setAttribute("role", "option");
-    button.setAttribute("aria-label", `Add ${note.name}`);
-    button.append(
-      createNoteText("note-symbol", note.symbol),
-      createNoteText("note-name", note.name),
-      createNoteText("note-value", note.valueLabel)
-    );
-    button.addEventListener("click", () => addNoteToChain(note.id));
-    elements.noteLibrary.append(button);
-  }
-}
-
-function renderNoteChain() {
-  elements.noteChain.replaceChildren();
-
-  if (app.noteChain.length === 0) {
-    const empty = document.createElement("span");
-    empty.className = "note-chain-empty";
-    empty.textContent = "Tap notes to build a chain";
-    elements.noteChain.append(empty);
-    return;
+  for (const option of BEAT_RHYTHM_OPTIONS) {
+    select.add(new Option(option.label, option.value));
   }
 
-  app.noteChain.forEach((item, index) => {
-    const note = getNoteById(item.noteId);
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "note-chip";
-    chip.classList.toggle("is-rest", note.rest);
-    chip.textContent = note.symbol;
-    chip.setAttribute("aria-label", `Remove ${note.name}`);
-    chip.addEventListener("click", () => {
-      removeNoteFromChain(index);
-    });
-    elements.noteChain.append(chip);
+  select.value = beat.rhythm ?? "inherit";
+  return select;
+}
+
+function renderBeatRhythmEditor() {
+  elements.beatRhythmEditor.replaceChildren();
+
+  getDisplayMeter().beats.forEach((beat, index) => {
+    const row = document.createElement("label");
+    row.className = "beat-rhythm-row";
+
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = `Beat ${index + 1}`;
+
+    row.append(label, createBeatRhythmSelect(beat, index));
+    elements.beatRhythmEditor.append(row);
   });
 }
 
-function addNoteToChain(noteId) {
-  const note = getNoteById(noteId);
-  app.noteChain = [...app.noteChain, { noteId: note.id }];
+function updateBeatRhythm(beatIndex, rhythm) {
+  const segmentIndex = getEditableSegmentIndex();
+
+  if (segmentIndex >= 0) {
+    const segments = app.state.patternChain.segments.map((segment, itemIndex) => {
+      if (itemIndex !== segmentIndex) {
+        return segment;
+      }
+
+      const beats = segment.meter.beats.map((beat, index) =>
+        index === beatIndex ? { ...beat, rhythm } : beat
+      );
+      return createPatternSegment(
+        { ...segment, meter: { ...segment.meter, beats } },
+        app.state,
+        itemIndex
+      );
+    });
+
+    app.state = createDefaultState({
+      ...app.state,
+      patternChain: { ...app.state.patternChain, segments },
+    });
+  } else {
+    const beats = app.state.meter.beats.map((beat, index) =>
+      index === beatIndex ? { ...beat, rhythm } : beat
+    );
+    app.state = createDefaultState({
+      ...app.state,
+      meter: { ...app.state.meter, beats },
+    });
+  }
+
   refreshPlaybackSchedule();
   render();
-  setStatus(`Added ${note.name}`);
+  setStatus(`Beat ${beatIndex + 1}: ${getBeatRhythmLabel(rhythm)}`);
 }
 
-function removeNoteFromChain(index) {
-  const note = getNoteById(app.noteChain[index]?.noteId);
-  app.noteChain = app.noteChain.filter((_, itemIndex) => itemIndex !== index);
-  refreshPlaybackSchedule();
-  render();
-  setStatus(`Removed ${note.name}`);
-}
+function handleBeatRhythmChange(event) {
+  const control = event.target.closest("[data-beat-rhythm]");
+  if (!control) {
+    return;
+  }
 
-function clearNoteChain() {
-  app.noteChain = [];
-  refreshPlaybackSchedule();
-  render();
-  setStatus("Chain cleared");
+  updateBeatRhythm(Number(control.dataset.beatRhythm), control.value);
 }
 
 function readStateFromControls() {
@@ -380,7 +378,7 @@ function render() {
   }
   elements.pendulum.hidden = app.state.visualMode !== "pendulum";
   renderBeatGrid();
-  renderNoteChain();
+  renderBeatRhythmEditor();
 }
 
 function updateFromControls() {
@@ -810,65 +808,6 @@ function cancelScheduledNodes() {
   app.scheduledNodes.clear();
 }
 
-function hasNoteChain() {
-  return app.noteChain.length > 0;
-}
-
-function createNoteChainSchedule({ startTime, cycles, cycleOffset = 0 }) {
-  const quarterDuration = getBeatDurationSeconds({
-    tempo: app.state.tempo,
-    tempoMode: app.state.tempoMode,
-    beatUnit: 4,
-  });
-  const events = [];
-  let currentTime = startTime;
-
-  for (let cycleIndex = 0; cycleIndex < cycles; cycleIndex += 1) {
-    const barIndex = cycleOffset + cycleIndex;
-    const barStart = currentTime;
-    let beatPosition = 0;
-
-    for (let noteIndex = 0; noteIndex < app.noteChain.length; noteIndex += 1) {
-      const note = getNoteById(app.noteChain[noteIndex].noteId);
-      const duration = note.beats * quarterDuration;
-      events.push({
-        time: currentTime,
-        barIndex,
-        beatIndex: noteIndex,
-        subdivisionIndex: 0,
-        kind: "main",
-        level: noteIndex === 0 ? "accent" : "normal",
-        audible: !note.rest,
-        isCountIn: false,
-        mutedByTrainer: false,
-        visual: true,
-        segmentIndex: -1,
-        segmentName: "Note Chain",
-        beatsPerBar: app.noteChain.length,
-        beatUnit: 4,
-        noteId: note.id,
-        noteValue: note.valueLabel,
-        barEndTime: currentTime + duration,
-      });
-      currentTime += duration;
-      beatPosition += note.beats;
-    }
-
-    const lastEvent = events[events.length - 1];
-    if (lastEvent) {
-      lastEvent.barEndTime = currentTime;
-    }
-    for (let index = events.length - app.noteChain.length; index < events.length; index += 1) {
-      if (events[index]?.barIndex === barIndex) {
-        events[index].barEndTime = currentTime;
-        events[index].beatsPerBar = Math.max(1, Math.ceil(beatPosition));
-      }
-    }
-  }
-
-  return events;
-}
-
 function rebuildSchedule({ includeCountIn = true } = {}) {
   const context = getAudioContext();
   if (!context) {
@@ -879,39 +818,27 @@ function rebuildSchedule({ includeCountIn = true } = {}) {
     return;
   }
 
-  const countInBars = includeCountIn ? app.state.countInBars : 0;
   app.startedAt = context.currentTime + 0.08;
-  app.schedule = hasNoteChain()
-    ? createNoteChainSchedule({
-        startTime: app.startedAt,
-        cycles: SCHEDULE_BARS,
-      })
-    : createSchedule({
-        state: createDefaultState({
-          ...app.state,
-          countInBars: includeCountIn ? app.state.countInBars : 0,
-        }),
-        bars: SCHEDULE_BARS,
-        startTime: app.startedAt,
-      });
+  app.schedule = createSchedule({
+    state: createDefaultState({
+      ...app.state,
+      countInBars: includeCountIn ? app.state.countInBars : 0,
+    }),
+    bars: SCHEDULE_BARS,
+    startTime: app.startedAt,
+  });
   app.scheduledIndex = 0;
   app.nextScheduleTime = getScheduleEndTime(app.schedule, app.startedAt);
   app.nextBarIndex = SCHEDULE_BARS;
 }
 
 function appendScheduleWindow() {
-  const appendedEvents = hasNoteChain()
-    ? createNoteChainSchedule({
-        startTime: app.nextScheduleTime,
-        cycles: SCHEDULE_BARS,
-        cycleOffset: app.nextBarIndex,
-      })
-    : createSchedule({
-        state: createDefaultState({ ...app.state, countInBars: 0 }),
-        bars: SCHEDULE_BARS,
-        startTime: app.nextScheduleTime,
-        barOffset: app.nextBarIndex,
-      });
+  const appendedEvents = createSchedule({
+    state: createDefaultState({ ...app.state, countInBars: 0 }),
+    bars: SCHEDULE_BARS,
+    startTime: app.nextScheduleTime,
+    barOffset: app.nextBarIndex,
+  });
 
   app.schedule = [...app.schedule, ...appendedEvents];
   app.nextScheduleTime = getScheduleEndTime(
@@ -1141,7 +1068,7 @@ function wireControls() {
   }
 
   elements.addPatternSegment.addEventListener("click", addPatternSegment);
-  elements.clearNoteChain.addEventListener("click", clearNoteChain);
+  elements.beatRhythmEditor.addEventListener("change", handleBeatRhythmChange);
   elements.patternSegments.addEventListener("input", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("change", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("click", handlePatternSegmentClick);
@@ -1153,7 +1080,6 @@ function wireControls() {
 loadPresets();
 wireControls();
 syncControlsFromState();
-renderNoteLibrary();
 renderPatternSegments();
 renderPresets();
 render();

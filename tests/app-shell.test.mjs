@@ -39,9 +39,7 @@ const requiredIds = [
   "timerToggle",
   "pendulum",
   "patternEnabled",
-  "noteLibrary",
-  "noteChain",
-  "clearNoteChain",
+  "beatRhythmEditor",
   "patternSegments",
   "addPatternSegment",
   "polyrhythmEnabled",
@@ -133,24 +131,25 @@ test("app imports core scheduler helpers for browser playback", () => {
 
 test("app wires pattern chain and polyrhythm controls", () => {
   assert.match(appJs, /function renderPatternSegments\(\) \{/);
-  assert.match(appJs, /function renderNoteLibrary\(\) \{/);
-  assert.match(appJs, /function renderNoteChain\(\) \{/);
-  assert.match(appJs, /function addNoteToChain\(/);
+  assert.match(appJs, /function renderBeatRhythmEditor\(\) \{/);
+  assert.match(appJs, /function updateBeatRhythm\(/);
   assert.match(appJs, /function updatePatternSegment\(/);
   assert.match(appJs, /patternEnabled/);
   assert.match(appJs, /polyrhythmEnabled/);
 });
 
-test("note library exposes simple note-card composition UI", () => {
-  assert.match(html, /Note Library/);
-  assert.match(html, /id=["']noteLibrary["']/);
-  assert.match(html, /id=["']noteChain["']/);
-  assert.match(html, /id=["']clearNoteChain["']/);
-  assert.doesNotMatch(html, /Rhythm Library/);
-  assert.match(appJs, /const NOTE_LIBRARY = \[/);
-  assert.match(appJs, /noteChain:\s*\[\]/);
-  assert.match(appJs, /data-note-id/);
-  assert.doesNotMatch(appJs, /RHYTHM_LIBRARY/);
+test("per-beat rhythm editor extends the existing metronome UI", () => {
+  assert.match(html, /Beat Rhythm/);
+  assert.match(html, /id=["']beatRhythmEditor["']/);
+  assert.match(appJs, /const BEAT_RHYTHM_OPTIONS = \[/);
+  assert.match(appJs, /data-beat-rhythm/);
+  assert.doesNotMatch(html, /Note Library/);
+  assert.doesNotMatch(appJs, /createNoteChainSchedule/);
+});
+
+test("tap tempo remains visible in the main interface", () => {
+  assert.match(html, /id=["']tapTempo["']/);
+  assert.doesNotMatch(styles, /#tapTempo,\s*\n#timerToggle\s*\{\s*display:\s*none;/);
 });
 
 test("hardware-inspired interface classes are present", () => {
@@ -158,9 +157,8 @@ test("hardware-inspired interface classes are present", () => {
   assert.match(html, /class=["'][^"']*\brhythm-shell\b/);
   assert.match(styles, /--crt-green:/);
   assert.match(styles, /--control-orange:/);
-  assert.match(styles, /\.note-library/);
-  assert.match(styles, /\.note-card/);
-  assert.match(styles, /\.note-chain/);
+  assert.match(styles, /\.beat-rhythm-editor/);
+  assert.match(styles, /\.beat-rhythm-row/);
   assert.match(styles, /\.device-header/);
 });
 

@@ -6,6 +6,7 @@ export const BEATS_PER_BAR_MIN = 1;
 export const BEATS_PER_BAR_MAX = 16;
 export const BEAT_UNITS = [2, 4, 8, 16, 32];
 export const ACCENT_LEVELS = ["accent", "secondary", "normal", "rest"];
+export const BEAT_RHYTHMS = ["inherit", "quarter", "eighth", "triplet", "sixteenth", "rest"];
 export const PATTERN_SEGMENTS_MAX = 8;
 
 const DEFAULT_METER = {
@@ -45,6 +46,10 @@ export function normalizeAccentLevel(level, fallback = "normal") {
   return ACCENT_LEVELS.includes(level) ? level : fallback;
 }
 
+export function normalizeBeatRhythm(rhythm) {
+  return BEAT_RHYTHMS.includes(rhythm) ? rhythm : "inherit";
+}
+
 export function resizeBeats(beats = [], beatsPerBar = DEFAULT_METER.beatsPerBar) {
   const beatList = Array.isArray(beats) ? beats : [];
   const count = Math.round(
@@ -57,6 +62,7 @@ export function resizeBeats(beats = [], beatsPerBar = DEFAULT_METER.beatsPerBar)
     return {
       index,
       level: normalizeAccentLevel(existing?.level, fallback),
+      rhythm: normalizeBeatRhythm(existing?.rhythm),
     };
   });
 }
@@ -164,6 +170,17 @@ export function normalizeSubdivision(value) {
 
 export function getSubdivisionOffsets(value) {
   return [...SUBDIVISIONS[normalizeSubdivision(value)]];
+}
+
+function getBeatRhythmOffsets(rhythm, fallbackSubdivision) {
+  const normalizedRhythm = normalizeBeatRhythm(rhythm);
+  if (normalizedRhythm === "inherit") {
+    return getSubdivisionOffsets(fallbackSubdivision);
+  }
+  if (normalizedRhythm === "quarter" || normalizedRhythm === "rest") {
+    return [0];
+  }
+  return getSubdivisionOffsets(normalizedRhythm);
 }
 
 export function clampInteger(value, min, max) {
@@ -292,7 +309,6 @@ export function createSchedule({
     const barDuration = beatDuration * barConfig.meter.beatsPerBar;
     const barStart = currentBarStart;
     const barEndTime = barStart + barDuration;
-    const offsets = getSubdivisionOffsets(barConfig.subdivision);
     const mutedByTrainer = isTrainerMutedBar(
       globalBarIndex,
       safeState.trainer,
@@ -300,6 +316,8 @@ export function createSchedule({
     );
 
     for (const beat of barConfig.meter.beats) {
+      const beatRhythm = normalizeBeatRhythm(beat.rhythm);
+      const offsets = getBeatRhythmOffsets(beatRhythm, barConfig.subdivision);
       for (
         let subdivisionIndex = 0;
         subdivisionIndex < offsets.length;
@@ -307,7 +325,7 @@ export function createSchedule({
       ) {
         const offset = offsets[subdivisionIndex];
         const isMain = subdivisionIndex === 0;
-        const rested = beat.level === "rest";
+        const rested = beat.level === "rest" || beatRhythm === "rest";
         const audible = !rested && !mutedByTrainer;
         events.push({
           time: barStart + beat.index * beatDuration + offset * beatDuration,
@@ -315,8 +333,9 @@ export function createSchedule({
           beatIndex: beat.index,
           subdivisionIndex,
           kind: isMain ? "main" : "subdivision",
-          level: isMain ? beat.level : "subdivision",
+          level: isMain && beatRhythm === "rest" ? "rest" : isMain ? beat.level : "subdivision",
           audible,
+          beatRhythm,
           isCountIn,
           mutedByTrainer,
           visual: !(mutedByTrainer && safeState.trainer.hideMutedVisuals),

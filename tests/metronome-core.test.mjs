@@ -285,6 +285,43 @@ test("createSchedule places subdivisions inside each beat", () => {
   );
 });
 
+test("createSchedule lets each beat override its rhythm pattern", () => {
+  const state = createDefaultState({
+    meter: {
+      beatsPerBar: 4,
+      beatUnit: 4,
+      beats: [
+        { index: 0, level: "accent", rhythm: "quarter" },
+        { index: 1, level: "normal", rhythm: "eighth" },
+        { index: 2, level: "normal", rhythm: "triplet" },
+        { index: 3, level: "normal", rhythm: "rest" },
+      ],
+    },
+    subdivision: "none",
+  });
+
+  const events = createSchedule({ state, bars: 1, startTime: 0 });
+
+  assert.deepEqual(
+    events.map((event) => ({
+      time: Number(event.time.toFixed(6)),
+      beatIndex: event.beatIndex,
+      subdivisionIndex: event.subdivisionIndex,
+      kind: event.kind,
+      audible: event.audible,
+    })),
+    [
+      { time: 0, beatIndex: 0, subdivisionIndex: 0, kind: "main", audible: true },
+      { time: 0.5, beatIndex: 1, subdivisionIndex: 0, kind: "main", audible: true },
+      { time: 0.75, beatIndex: 1, subdivisionIndex: 1, kind: "subdivision", audible: true },
+      { time: 1, beatIndex: 2, subdivisionIndex: 0, kind: "main", audible: true },
+      { time: 1.166667, beatIndex: 2, subdivisionIndex: 1, kind: "subdivision", audible: true },
+      { time: 1.333333, beatIndex: 2, subdivisionIndex: 2, kind: "subdivision", audible: true },
+      { time: 1.5, beatIndex: 3, subdivisionIndex: 0, kind: "main", audible: false },
+    ]
+  );
+});
+
 test("createSchedule cycles pattern chain segments with independent meters", () => {
   const state = createDefaultState({
     patternChain: {

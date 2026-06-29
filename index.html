@@ -136,18 +136,13 @@
         </label>
       </section>
 
-      <section class="pattern-panel note-panel" aria-labelledby="patternHeading">
-        <h2 id="patternHeading">Note Library</h2>
-        <div id="noteLibrary" class="note-library" role="listbox" aria-label="Note library"></div>
-        <div class="note-chain-bar">
-          <span class="label">Chain</span>
-          <button id="clearNoteChain" type="button">Clear</button>
-        </div>
-        <div id="noteChain" class="note-chain" aria-label="Note chain"></div>
+      <section class="pattern-panel beat-rhythm-panel" aria-labelledby="patternHeading">
+        <h2 id="patternHeading">Beat Rhythm</h2>
+        <div id="beatRhythmEditor" class="beat-rhythm-editor" aria-label="Per-beat rhythm editor"></div>
         <details class="pattern-details">
-          <summary>Advanced</summary>
+          <summary>Pattern Chain</summary>
           <label class="inline-toggle">
-            <span class="label">Loop pattern</span>
+            <span class="label">Loop segments</span>
             <input id="patternEnabled" type="checkbox">
           </label>
           <div id="patternSegments" class="pattern-segments" aria-label="Pattern chain segments"></div>
