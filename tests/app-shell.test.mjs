@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const appJs = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
+const styles = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
 
 const requiredIds = [
   "playToggle",
@@ -38,6 +39,10 @@ const requiredIds = [
   "timerToggle",
   "pendulum",
   "patternEnabled",
+  "rhythmLibrary",
+  "selectedRhythmName",
+  "addSelectedRhythm",
+  "chainStrip",
   "patternSegments",
   "addPatternSegment",
   "polyrhythmEnabled",
@@ -129,9 +134,33 @@ test("app imports core scheduler helpers for browser playback", () => {
 
 test("app wires pattern chain and polyrhythm controls", () => {
   assert.match(appJs, /function renderPatternSegments\(\) \{/);
+  assert.match(appJs, /function renderRhythmLibrary\(\) \{/);
+  assert.match(appJs, /function renderChainStrip\(\) \{/);
+  assert.match(appJs, /function addSelectedRhythmToChain\(\) \{/);
   assert.match(appJs, /function updatePatternSegment\(/);
   assert.match(appJs, /patternEnabled/);
   assert.match(appJs, /polyrhythmEnabled/);
+});
+
+test("rhythm library exposes card-based composition UI", () => {
+  assert.match(html, /Rhythm Library/);
+  assert.match(html, /Add to chain/);
+  assert.match(html, /id=["']rhythmLibrary["']/);
+  assert.match(html, /id=["']chainStrip["']/);
+  assert.match(appJs, /const RHYTHM_LIBRARY = \[/);
+  assert.match(appJs, /selectedRhythmId:/);
+  assert.match(appJs, /data-rhythm-id/);
+});
+
+test("hardware-inspired interface classes are present", () => {
+  assert.match(html, /class=["'][^"']*\bdevice-header\b/);
+  assert.match(html, /class=["'][^"']*\brhythm-shell\b/);
+  assert.match(styles, /--crt-green:/);
+  assert.match(styles, /--control-orange:/);
+  assert.match(styles, /\.rhythm-library/);
+  assert.match(styles, /\.rhythm-card/);
+  assert.match(styles, /\.chain-strip/);
+  assert.match(styles, /\.device-header/);
 });
 
 test("app uses Web Audio and avoids setInterval for audible timing", () => {

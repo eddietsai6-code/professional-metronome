@@ -5,10 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
     <title>Professional Metronome</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="assets/styles.css">
   </head>
   <body>
-    <main class="metronome-app" aria-labelledby="appTitle">
+    <main class="metronome-app rhythm-shell" aria-labelledby="appTitle">
+      <header class="device-header" aria-label="Application mode">
+        <div class="brand-mark">
+          <span class="label">Professional</span>
+          <strong>RHYTHM.CORE</strong>
+        </div>
+        <div class="mode-switch" aria-label="Mode">
+          <span>Train</span>
+          <span class="is-active">Lib</span>
+        </div>
+      </header>
+
       <section class="display-panel" aria-labelledby="appTitle">
         <header class="topline">
           <div>
@@ -125,13 +137,25 @@
       </section>
 
       <section class="pattern-panel" aria-labelledby="patternHeading">
-        <h2 id="patternHeading">Pattern Chain</h2>
+        <h2 id="patternHeading">Rhythm Library</h2>
         <label class="inline-toggle">
-          <span class="label">Loop segments</span>
+          <span class="label">Loop chain</span>
           <input id="patternEnabled" type="checkbox">
         </label>
-        <div id="patternSegments" class="pattern-segments" aria-label="Pattern chain segments"></div>
-        <button id="addPatternSegment" type="button">Add segment</button>
+        <div id="rhythmLibrary" class="rhythm-library" role="listbox" aria-label="Rhythm library"></div>
+        <div class="library-action">
+          <div>
+            <span class="label">Selected</span>
+            <output id="selectedRhythmName">Straight 4/4</output>
+          </div>
+          <button id="addSelectedRhythm" type="button">Add to chain</button>
+        </div>
+        <div id="chainStrip" class="chain-strip" aria-label="Pattern chain"></div>
+        <details class="pattern-details" open>
+          <summary>Fine tune chain</summary>
+          <div id="patternSegments" class="pattern-segments" aria-label="Pattern chain segments"></div>
+        </details>
+        <button id="addPatternSegment" type="button">Add custom 7/8</button>
       </section>
 
       <section class="polyrhythm-panel" aria-labelledby="polyrhythmHeading">

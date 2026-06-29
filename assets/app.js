@@ -1,6 +1,7 @@
 import {
   ACCENT_LEVELS,
   APP_VERSION,
+  PATTERN_SEGMENTS_MAX,
   SUBDIVISION_OPTIONS,
   calculateTapTempo,
   createPatternSegment,
@@ -20,6 +21,243 @@ const LOOKAHEAD_SECONDS = 0.1;
 const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
 
+function groupedBeats(groups) {
+  const beats = [];
+  let cursor = 0;
+  for (const groupSize of groups) {
+    for (let index = 0; index < groupSize; index += 1) {
+      beats.push({
+        index: cursor,
+        level: cursor === 0 ? "accent" : index === 0 ? "secondary" : "normal",
+      });
+      cursor += 1;
+    }
+  }
+  return beats;
+}
+
+const RHYTHM_LIBRARY = [
+  {
+    id: "straight-4-4",
+    name: "Straight 4/4",
+    signature: "4/4",
+    caption: "Quarter pulse",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "none",
+  },
+  {
+    id: "march-2-4",
+    name: "March 2/4",
+    signature: "2/4",
+    caption: "Two count",
+    bars: 1,
+    meter: { beatsPerBar: 2, beatUnit: 4 },
+    subdivision: "none",
+  },
+  {
+    id: "waltz-3-4",
+    name: "Waltz 3/4",
+    signature: "3/4",
+    caption: "Three count",
+    bars: 1,
+    meter: { beatsPerBar: 3, beatUnit: 4 },
+    subdivision: "none",
+  },
+  {
+    id: "five-four",
+    name: "Five 5/4",
+    signature: "5/4",
+    caption: "3 + 2",
+    bars: 1,
+    meter: { beatsPerBar: 5, beatUnit: 4, beats: groupedBeats([3, 2]) },
+    subdivision: "none",
+  },
+  {
+    id: "six-four",
+    name: "Broad 6/4",
+    signature: "6/4",
+    caption: "3 + 3",
+    bars: 1,
+    meter: { beatsPerBar: 6, beatUnit: 4, beats: groupedBeats([3, 3]) },
+    subdivision: "none",
+  },
+  {
+    id: "seven-four",
+    name: "Seven 7/4",
+    signature: "7/4",
+    caption: "4 + 3",
+    bars: 1,
+    meter: { beatsPerBar: 7, beatUnit: 4, beats: groupedBeats([4, 3]) },
+    subdivision: "none",
+  },
+  {
+    id: "compound-6-8",
+    name: "Compound 6/8",
+    signature: "6/8",
+    caption: "3 + 3",
+    bars: 1,
+    meter: { beatsPerBar: 6, beatUnit: 8, beats: groupedBeats([3, 3]) },
+    subdivision: "eighth",
+  },
+  {
+    id: "odd-5-8",
+    name: "Odd 5/8",
+    signature: "5/8",
+    caption: "2 + 3",
+    bars: 1,
+    meter: { beatsPerBar: 5, beatUnit: 8, beats: groupedBeats([2, 3]) },
+    subdivision: "eighth",
+  },
+  {
+    id: "odd-7-8",
+    name: "Odd 7/8",
+    signature: "7/8",
+    caption: "2 + 2 + 3",
+    bars: 1,
+    meter: { beatsPerBar: 7, beatUnit: 8, beats: groupedBeats([2, 2, 3]) },
+    subdivision: "eighth",
+  },
+  {
+    id: "odd-8-8",
+    name: "Grouped 8/8",
+    signature: "8/8",
+    caption: "3 + 3 + 2",
+    bars: 1,
+    meter: { beatsPerBar: 8, beatUnit: 8, beats: groupedBeats([3, 3, 2]) },
+    subdivision: "eighth",
+  },
+  {
+    id: "compound-9-8",
+    name: "Compound 9/8",
+    signature: "9/8",
+    caption: "3 + 3 + 3",
+    bars: 1,
+    meter: { beatsPerBar: 9, beatUnit: 8, beats: groupedBeats([3, 3, 3]) },
+    subdivision: "eighth",
+  },
+  {
+    id: "odd-10-8",
+    name: "Odd 10/8",
+    signature: "10/8",
+    caption: "3 + 3 + 2 + 2",
+    bars: 1,
+    meter: {
+      beatsPerBar: 10,
+      beatUnit: 8,
+      beats: groupedBeats([3, 3, 2, 2]),
+    },
+    subdivision: "eighth",
+  },
+  {
+    id: "odd-11-8",
+    name: "Odd 11/8",
+    signature: "11/8",
+    caption: "3 + 3 + 3 + 2",
+    bars: 1,
+    meter: {
+      beatsPerBar: 11,
+      beatUnit: 8,
+      beats: groupedBeats([3, 3, 3, 2]),
+    },
+    subdivision: "eighth",
+  },
+  {
+    id: "compound-12-8",
+    name: "Compound 12/8",
+    signature: "12/8",
+    caption: "Four groups",
+    bars: 1,
+    meter: {
+      beatsPerBar: 12,
+      beatUnit: 8,
+      beats: groupedBeats([3, 3, 3, 3]),
+    },
+    subdivision: "eighth",
+  },
+  {
+    id: "triplet-grid",
+    name: "Triplet Grid",
+    signature: "3LET",
+    caption: "Triplet subdivision",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "triplet",
+  },
+  {
+    id: "sixteenth-grid",
+    name: "Sixteenth Grid",
+    signature: "16TH",
+    caption: "Four per beat",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "sixteenth",
+  },
+  {
+    id: "quintuplet-grid",
+    name: "Quintuplet",
+    signature: "5LET",
+    caption: "Five per beat",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "quintuplet",
+  },
+  {
+    id: "sextuplet-grid",
+    name: "Sextuplet",
+    signature: "6LET",
+    caption: "Six per beat",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "sextuplet",
+  },
+  {
+    id: "septuplet-grid",
+    name: "Septuplet",
+    signature: "7LET",
+    caption: "Seven per beat",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "septuplet",
+  },
+  {
+    id: "thirtysecond-grid",
+    name: "Thirty-second",
+    signature: "32ND",
+    caption: "Eight per beat",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "thirtysecond",
+  },
+  {
+    id: "dotted-pulse",
+    name: "Dotted Pulse",
+    signature: "DOT",
+    caption: "Long-short feel",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "dotted",
+  },
+  {
+    id: "shuffle-4-4",
+    name: "Shuffle 4/4",
+    signature: "SHF",
+    caption: "Swing pulse",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "shuffle",
+  },
+  {
+    id: "swung-sixteenth",
+    name: "Swung 16th",
+    signature: "SW16",
+    caption: "Loose sixteenth",
+    bars: 1,
+    meter: { beatsPerBar: 4, beatUnit: 4 },
+    subdivision: "swung-sixteenth",
+  },
+];
+
 document.documentElement.dataset.appVersion = APP_VERSION;
 
 const elements = {
@@ -33,6 +271,8 @@ const elements = {
   patternEnabled: document.querySelector("#patternEnabled"),
   patternSegments: document.querySelector("#patternSegments"),
   addPatternSegment: document.querySelector("#addPatternSegment"),
+  addSelectedRhythm: document.querySelector("#addSelectedRhythm"),
+  chainStrip: document.querySelector("#chainStrip"),
   playToggle: document.querySelector("#playToggle"),
   polyrhythmEnabled: document.querySelector("#polyrhythmEnabled"),
   polyrhythmPulses: document.querySelector("#polyrhythmPulses"),
@@ -40,6 +280,8 @@ const elements = {
   presetList: document.querySelector("#presetList"),
   presetName: document.querySelector("#presetName"),
   savePreset: document.querySelector("#savePreset"),
+  rhythmLibrary: document.querySelector("#rhythmLibrary"),
+  selectedRhythmName: document.querySelector("#selectedRhythmName"),
   soundStyle: document.querySelector("#soundStyle"),
   statusText: document.querySelector("#statusText"),
   subdivisionReadout: document.querySelector("#subdivisionReadout"),
@@ -76,6 +318,7 @@ const app = {
   scheduledIndex: 0,
   scheduledNodes: new Set(),
   schedulerTimer: null,
+  selectedRhythmId: RHYTHM_LIBRARY[0].id,
   state: createDefaultState(),
   startedAt: 0,
   tapTimes: [],
@@ -96,6 +339,122 @@ function getSubdivisionLabel(value) {
 
 function getSelectedSubdivisionLabel() {
   return getSubdivisionLabel(elements.subdivisionSelect.value);
+}
+
+function getSelectedRhythm() {
+  return (
+    RHYTHM_LIBRARY.find((rhythm) => rhythm.id === app.selectedRhythmId) ||
+    RHYTHM_LIBRARY[0]
+  );
+}
+
+function renderSelectedRhythm() {
+  const rhythm = getSelectedRhythm();
+  elements.selectedRhythmName.value = rhythm.name;
+  elements.selectedRhythmName.textContent = rhythm.name;
+}
+
+function createRhythmCardText(className, text) {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
+function renderRhythmLibrary() {
+  elements.rhythmLibrary.replaceChildren();
+
+  for (const rhythm of RHYTHM_LIBRARY) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "rhythm-card";
+    button.setAttribute("data-rhythm-id", rhythm.id);
+    button.setAttribute("role", "option");
+    button.setAttribute(
+      "aria-selected",
+      String(rhythm.id === app.selectedRhythmId)
+    );
+    button.append(
+      createRhythmCardText("rhythm-signature", rhythm.signature),
+      createRhythmCardText("rhythm-name", rhythm.name),
+      createRhythmCardText("rhythm-caption", rhythm.caption)
+    );
+    button.addEventListener("click", () => {
+      app.selectedRhythmId = rhythm.id;
+      renderRhythmLibrary();
+      renderSelectedRhythm();
+      setStatus(`Selected ${rhythm.name}`);
+    });
+    button.addEventListener("dblclick", addSelectedRhythmToChain);
+    elements.rhythmLibrary.append(button);
+  }
+}
+
+function renderChainStrip() {
+  elements.chainStrip.replaceChildren();
+
+  if (!app.state.patternChain.enabled) {
+    const empty = document.createElement("span");
+    empty.className = "chain-empty";
+    empty.textContent = "Select rhythm cards to build a chain";
+    elements.chainStrip.append(empty);
+    return;
+  }
+
+  app.state.patternChain.segments.forEach((segment, index) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chain-chip";
+    chip.classList.toggle("is-active", index === app.activeSegmentIndex);
+    chip.textContent = `${index + 1}. ${segment.name} x${segment.bars}`;
+    chip.addEventListener("click", () => {
+      app.activeSegmentIndex = index;
+      render();
+      setStatus(`Preview ${segment.name}`);
+    });
+    elements.chainStrip.append(chip);
+  });
+}
+
+function addSelectedRhythmToChain() {
+  const rhythm = getSelectedRhythm();
+  const existingSegments = app.state.patternChain.enabled
+    ? app.state.patternChain.segments
+    : [];
+
+  if (existingSegments.length >= PATTERN_SEGMENTS_MAX) {
+    setStatus(`Chain supports up to ${PATTERN_SEGMENTS_MAX} segments`);
+    return;
+  }
+
+  const nextIndex = existingSegments.length;
+  const nextSegment = createPatternSegment(
+    {
+      id: `${rhythm.id}-${nextIndex + 1}`,
+      name: rhythm.name,
+      bars: rhythm.bars,
+      tempo: app.state.tempo,
+      tempoMode: app.state.tempoMode,
+      meter: rhythm.meter,
+      subdivision: rhythm.subdivision,
+    },
+    app.state,
+    nextIndex
+  );
+
+  app.activeSegmentIndex = nextIndex;
+  app.state = createDefaultState({
+    ...readStateFromControls(),
+    patternChain: {
+      enabled: true,
+      segments: [...existingSegments, nextSegment],
+    },
+  });
+  syncControlsFromState();
+  renderPatternSegments();
+  refreshPlaybackSchedule();
+  render();
+  setStatus(`Added ${rhythm.name}`);
 }
 
 function readStateFromControls() {
@@ -281,10 +640,11 @@ function render() {
   elements.muteToggle.setAttribute("aria-pressed", String(app.state.muted));
   elements.playToggle.textContent = app.playing ? "Stop" : "Play";
   if (!app.timerId) {
-    elements.timerToggle.textContent = "Timer";
+  elements.timerToggle.textContent = "Timer";
   }
   elements.pendulum.hidden = app.state.visualMode !== "pendulum";
   renderBeatGrid();
+  renderChainStrip();
 }
 
 function updateFromControls() {
@@ -505,7 +865,16 @@ function removePatternSegment(index) {
 }
 
 function addPatternSegment() {
-  const nextIndex = app.state.patternChain.segments.length;
+  const existingSegments = app.state.patternChain.enabled
+    ? app.state.patternChain.segments
+    : [];
+
+  if (existingSegments.length >= PATTERN_SEGMENTS_MAX) {
+    setStatus(`Chain supports up to ${PATTERN_SEGMENTS_MAX} segments`);
+    return;
+  }
+
+  const nextIndex = existingSegments.length;
   const nextSegment = createPatternSegment(
     {
       name: `Pattern ${nextIndex + 1}`,
@@ -521,10 +890,12 @@ function addPatternSegment() {
   app.state = createDefaultState({
     ...readStateFromControls(),
     patternChain: {
-      enabled: elements.patternEnabled.checked,
-      segments: [...app.state.patternChain.segments, nextSegment],
+      enabled: true,
+      segments: [...existingSegments, nextSegment],
     },
   });
+  app.activeSegmentIndex = nextIndex;
+  syncControlsFromState();
   renderPatternSegments();
   refreshPlaybackSchedule();
   render();
@@ -964,6 +1335,7 @@ function wireControls() {
   }
 
   elements.addPatternSegment.addEventListener("click", addPatternSegment);
+  elements.addSelectedRhythm.addEventListener("click", addSelectedRhythmToChain);
   elements.patternSegments.addEventListener("input", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("change", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("click", handlePatternSegmentClick);
@@ -975,6 +1347,8 @@ function wireControls() {
 loadPresets();
 wireControls();
 syncControlsFromState();
+renderRhythmLibrary();
+renderSelectedRhythm();
 renderPatternSegments();
 renderPresets();
 render();
