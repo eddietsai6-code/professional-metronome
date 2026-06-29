@@ -13,11 +13,7 @@
       <header class="device-header" aria-label="Application mode">
         <div class="brand-mark">
           <span class="label">Professional</span>
-          <strong>RHYTHM.CORE</strong>
-        </div>
-        <div class="mode-switch" aria-label="Mode">
-          <span>Train</span>
-          <span class="is-active">Lib</span>
+          <strong>Eddie.RHYTHM</strong>
         </div>
       </header>
 
@@ -49,7 +45,6 @@
           <button id="playToggle" class="play-button" type="button">Play</button>
           <button id="tapTempo" type="button">Tap</button>
           <button id="muteToggle" type="button" aria-pressed="false">Mute</button>
-          <button id="timerToggle" type="button">Timer</button>
         </div>
 
         <div class="tempo-controls">
@@ -148,73 +143,6 @@
           <div id="patternSegments" class="pattern-segments" aria-label="Pattern chain segments"></div>
           <button id="addPatternSegment" type="button">Add custom 7/8</button>
         </details>
-      </section>
-
-      <section class="polyrhythm-panel" aria-labelledby="polyrhythmHeading">
-        <h2 id="polyrhythmHeading">Polyrhythm</h2>
-        <label class="inline-toggle">
-          <span class="label">Overlay</span>
-          <input id="polyrhythmEnabled" type="checkbox">
-        </label>
-        <label>
-          <span class="label">Scope</span>
-          <select id="polyrhythmScope">
-            <option value="bar" selected>Per bar</option>
-            <option value="beat">Per beat</option>
-          </select>
-        </label>
-        <label>
-          <span class="label">Pulses</span>
-          <input id="polyrhythmPulses" type="number" min="1" max="16" step="1" value="3" inputmode="numeric">
-        </label>
-      </section>
-
-      <section class="practice-panel" aria-labelledby="practiceHeading">
-        <h2 id="practiceHeading">Practice</h2>
-        <label>
-          <span class="label">Trainer</span>
-          <input id="trainerEnabled" type="checkbox">
-        </label>
-
-        <label>
-          <span class="label">Play bars</span>
-          <input id="trainerPlayBars" type="number" min="1" max="32" step="1" value="3" inputmode="numeric">
-        </label>
-
-        <label>
-          <span class="label">Mute bars</span>
-          <input id="trainerMuteBars" type="number" min="1" max="32" step="1" value="1" inputmode="numeric">
-        </label>
-
-        <label>
-          <span class="label">Random mute</span>
-          <input id="trainerRandomPercent" type="number" min="0" max="100" step="1" value="15" inputmode="numeric">
-        </label>
-
-        <label>
-          <span class="label">Hide muted visuals</span>
-          <input id="trainerHideVisuals" type="checkbox">
-        </label>
-
-        <label>
-          <span class="label">Timer minutes</span>
-          <input id="timerMinutes" type="number" min="1" max="240" step="1" value="10" inputmode="numeric">
-        </label>
-      </section>
-
-      <section class="preset-panel" aria-labelledby="presetHeading">
-        <h2 id="presetHeading">Presets</h2>
-        <label>
-          <span class="label">Preset name</span>
-          <input id="presetName" type="text" autocomplete="off" placeholder="Practice setup">
-        </label>
-        <button id="savePreset" type="button">Save</button>
-        <label>
-          <span class="label">Saved presets</span>
-          <select id="presetList">
-            <option value="">No presets saved</option>
-          </select>
-        </label>
       </section>
     </main>
 

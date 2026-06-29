@@ -16,16 +16,12 @@ This is a browser app that can be committed to GitHub and hosted as static files
 - Per-beat rhythm editor for assigning quarter, eighth, triplet, sixteenth, or rest behavior inside the existing meter
 - Pattern chain playback, such as two bars of 4/4 followed by one bar of 7/8
 - Per-pattern tempo, meter, beat unit, subdivision, and loop bars
-- Polyrhythm overlays by bar or by beat, with 1 to 16 overlay pulses
 - Count-in from 0 to 8 bars
 - Visual beat grid and pendulum-style mode
 - Tap tempo
 - Synthesized Web Audio click styles
-- Rhythm trainer with fixed and random mute behavior
-- Practice timer
-- Local presets stored in the browser
 - Keyboard shortcuts for stage-style operation
-- Minimal hardware-inspired interface for portrait and landscape web use
+- Minimal hardware-inspired interface with symbol-based per-beat rhythm controls
 
 ## Quick Start
 
@@ -47,7 +43,7 @@ Click `Play` once so the browser can start audio from a user gesture.
 npm test
 ```
 
-The test suite covers tempo math, BPM/QPM timing, meter normalization, event generation, subdivisions, rests, count-in, rhythm trainer muting, tap tempo, preset validation, scheduler guardrails, keyboard shortcuts, timer hooks, and static app wiring.
+The test suite covers tempo math, BPM/QPM timing, meter normalization, event generation, subdivisions, rests, count-in, rhythm trainer muting in the core scheduler, tap tempo, preset validation in the core model, scheduler guardrails, keyboard shortcuts, and static app wiring.
 
 ## GitHub Hosting
 

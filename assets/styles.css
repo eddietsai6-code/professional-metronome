@@ -150,43 +150,14 @@ summary {
   letter-spacing: 0;
 }
 
-.brand-mark strong::after {
-  content: ".WEB";
+.brand-mark strong::first-letter {
   color: var(--control-orange);
-}
-
-.mode-switch {
-  display: flex;
-  min-width: 212px;
-  border-radius: 8px;
-  background: #171619;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.mode-switch span {
-  flex: 1;
-  min-height: 46px;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.mode-switch .is-active {
-  background: linear-gradient(180deg, var(--control-orange), #c86631);
-  color: #fff8f1;
 }
 
 .display-panel,
 .control-panel,
 .tool-grid,
-.pattern-panel,
-.polyrhythm-panel,
-.practice-panel,
-.preset-panel {
+.pattern-panel {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #1d1d20;
@@ -342,25 +313,61 @@ summary {
 
 .beat-rhythm-editor {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
 
 .beat-rhythm-row {
   padding: 10px;
   display: grid;
-  gap: 8px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
   border-color: rgba(121, 242, 93, 0.28);
   background:
     linear-gradient(180deg, rgba(121, 242, 93, 0.09), rgba(121, 242, 93, 0.025)),
     #071009;
 }
 
-.beat-rhythm-row select {
-  min-height: 42px;
-  background: #0b120d;
+.beat-rhythm-index {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(121, 242, 93, 0.12);
   color: var(--crt-green);
-  border-color: rgba(121, 242, 93, 0.34);
+  font-weight: 900;
+}
+
+.beat-rhythm-options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(36px, 1fr));
+  gap: 6px;
+}
+
+.beat-rhythm-option {
+  min-height: 46px;
+  padding: 0;
+  border-color: rgba(121, 242, 93, 0.22);
+  background: #0b120d;
+  color: rgba(186, 236, 177, 0.86);
+  font-family: "Segoe UI Symbol", "Noto Music", "Arial Unicode MS", sans-serif;
+  font-size: 1.28rem;
+  line-height: 1;
+}
+
+.beat-rhythm-option:hover,
+.beat-rhythm-option:focus-visible,
+.beat-rhythm-option.is-selected {
+  border-color: var(--crt-green);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(121, 242, 93, 0.2), transparent 66%),
+    #0e1a10;
+  color: var(--crt-green);
+  box-shadow:
+    inset 0 0 14px rgba(121, 242, 93, 0.18),
+    0 0 12px rgba(121, 242, 93, 0.24);
 }
 
 .beat-rhythm-row:focus-within {
@@ -429,12 +436,11 @@ summary {
 
 .transport {
   display: grid;
-  grid-template-columns: minmax(110px, 1fr) repeat(3, minmax(76px, 0.7fr));
+  grid-template-columns: minmax(110px, 1fr) repeat(2, minmax(76px, 0.7fr));
   gap: 10px;
 }
 
 #tapTempo,
-#timerToggle,
 #muteToggle,
 .pattern-panel > button {
   background: linear-gradient(180deg, #55565a, #3d3d41);
@@ -450,31 +456,11 @@ summary {
   order: 4;
 }
 
-.polyrhythm-panel {
-  order: 5;
-}
-
-.practice-panel {
-  order: 6;
-}
-
-.preset-panel {
-  order: 7;
-}
-
-.tool-grid,
-.polyrhythm-panel,
-.practice-panel,
-.preset-panel {
+.tool-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
   gap: 10px;
   background: var(--device-dark);
-}
-
-.preset-panel {
-  grid-template-columns: minmax(0, 1fr) 104px minmax(150px, 1fr);
-  align-items: end;
 }
 
 input[type="checkbox"] {
@@ -487,8 +473,7 @@ input[type="range"] {
 }
 
 @media (min-width: 880px) {
-  .tool-grid,
-  .practice-panel {
+  .tool-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
@@ -503,10 +488,8 @@ input[type="range"] {
   }
 
   .device-header,
-  .library-action,
   .topline,
-  .transport,
-  .preset-panel {
+  .transport {
     grid-template-columns: 1fr;
   }
 
@@ -523,18 +506,10 @@ input[type="range"] {
     display: grid;
   }
 
-  .mode-switch {
-    min-width: 0;
-    width: 100%;
-  }
-
   .display-panel,
   .control-panel,
   .tool-grid,
-  .pattern-panel,
-  .polyrhythm-panel,
-  .practice-panel,
-  .preset-panel {
+  .pattern-panel {
     padding: 12px;
   }
 
@@ -560,7 +535,11 @@ input[type="range"] {
   }
 
   .beat-rhythm-editor {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .beat-rhythm-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -586,10 +565,7 @@ input[type="range"] {
   }
 
   .control-panel,
-  .tool-grid,
-  .polyrhythm-panel,
-  .practice-panel,
-  .preset-panel {
+  .tool-grid {
     grid-column: 1 / -1;
   }
 

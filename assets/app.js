@@ -6,28 +6,24 @@ import {
   calculateTapTempo,
   createPatternSegment,
   createDefaultState,
-  createPreset,
   createSchedule,
   getAudibleEventLevel,
-  getBeatDurationSeconds,
   getScheduleEndTime,
   normalizeMeter,
-  validatePreset,
 } from "./metronome-core.js";
 
-const PRESET_STORAGE_KEY = "professional-metronome.presets";
 const TAP_SAMPLE_LIMIT = 6;
 const LOOKAHEAD_SECONDS = 0.1;
 const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
 
 const BEAT_RHYTHM_OPTIONS = [
-  { value: "inherit", label: "Follow global" },
-  { value: "quarter", label: "Quarter" },
-  { value: "eighth", label: "Eighth pair" },
-  { value: "triplet", label: "Triplet" },
-  { value: "sixteenth", label: "Sixteenth four" },
-  { value: "rest", label: "Rest" },
+  { value: "inherit", symbol: "↺", label: "跟随全局" },
+  { value: "quarter", symbol: "♩", label: "四分音符" },
+  { value: "eighth", symbol: "♫", label: "两个八分音符" },
+  { value: "triplet", symbol: "♪³", label: "三连音" },
+  { value: "sixteenth", symbol: "♬", label: "四个十六分音符" },
+  { value: "rest", symbol: "𝄽", label: "休止" },
 ];
 document.documentElement.dataset.appVersion = APP_VERSION;
 
@@ -44,12 +40,6 @@ const elements = {
   addPatternSegment: document.querySelector("#addPatternSegment"),
   beatRhythmEditor: document.querySelector("#beatRhythmEditor"),
   playToggle: document.querySelector("#playToggle"),
-  polyrhythmEnabled: document.querySelector("#polyrhythmEnabled"),
-  polyrhythmPulses: document.querySelector("#polyrhythmPulses"),
-  polyrhythmScope: document.querySelector("#polyrhythmScope"),
-  presetList: document.querySelector("#presetList"),
-  presetName: document.querySelector("#presetName"),
-  savePreset: document.querySelector("#savePreset"),
   soundStyle: document.querySelector("#soundStyle"),
   statusText: document.querySelector("#statusText"),
   subdivisionReadout: document.querySelector("#subdivisionReadout"),
@@ -61,13 +51,6 @@ const elements = {
   tempoModeLabel: document.querySelector("#tempoModeLabel"),
   tempoReadout: document.querySelector("#tempoReadout"),
   tempoUp: document.querySelector("#tempoUp"),
-  timerMinutes: document.querySelector("#timerMinutes"),
-  timerToggle: document.querySelector("#timerToggle"),
-  trainerEnabled: document.querySelector("#trainerEnabled"),
-  trainerHideVisuals: document.querySelector("#trainerHideVisuals"),
-  trainerMuteBars: document.querySelector("#trainerMuteBars"),
-  trainerPlayBars: document.querySelector("#trainerPlayBars"),
-  trainerRandomPercent: document.querySelector("#trainerRandomPercent"),
   visualMode: document.querySelector("#visualMode"),
   volumeControl: document.querySelector("#volumeControl"),
 };
@@ -80,7 +63,6 @@ const app = {
   nextBarIndex: 0,
   nextScheduleTime: 0,
   playing: false,
-  presets: [],
   rafId: null,
   schedule: [],
   scheduledIndex: 0,
@@ -89,8 +71,6 @@ const app = {
   state: createDefaultState(),
   startedAt: 0,
   tapTimes: [],
-  timerId: null,
-  timerRemainingSeconds: 0,
 };
 
 function setStatus(message) {
@@ -115,31 +95,41 @@ function getBeatRhythmLabel(value) {
   );
 }
 
-function createBeatRhythmSelect(beat, index) {
-  const select = document.createElement("select");
-  select.dataset.beatRhythm = String(index);
-  select.setAttribute("aria-label", `Beat ${index + 1} rhythm`);
-
-  for (const option of BEAT_RHYTHM_OPTIONS) {
-    select.add(new Option(option.label, option.value));
-  }
-
-  select.value = beat.rhythm ?? "inherit";
-  return select;
+function createBeatRhythmButton(option, beat, index) {
+  const button = document.createElement("button");
+  const selected = (beat.rhythm ?? "inherit") === option.value;
+  button.type = "button";
+  button.className = "beat-rhythm-option";
+  button.dataset.beatRhythm = String(index);
+  button.dataset.rhythmValue = option.value;
+  button.textContent = option.symbol;
+  button.setAttribute("aria-label", `第 ${index + 1} 拍：${option.label}`);
+  button.setAttribute("aria-pressed", String(selected));
+  button.classList.toggle("is-selected", selected);
+  return button;
 }
 
 function renderBeatRhythmEditor() {
   elements.beatRhythmEditor.replaceChildren();
 
   getDisplayMeter().beats.forEach((beat, index) => {
-    const row = document.createElement("label");
+    const row = document.createElement("div");
     row.className = "beat-rhythm-row";
 
     const label = document.createElement("span");
-    label.className = "label";
-    label.textContent = `Beat ${index + 1}`;
+    label.className = "beat-rhythm-index";
+    label.textContent = String(index + 1);
 
-    row.append(label, createBeatRhythmSelect(beat, index));
+    const options = document.createElement("div");
+    options.className = "beat-rhythm-options";
+    options.setAttribute("role", "group");
+    options.setAttribute("aria-label", `第 ${index + 1} 拍节奏`);
+
+    for (const option of BEAT_RHYTHM_OPTIONS) {
+      options.append(createBeatRhythmButton(option, beat, index));
+    }
+
+    row.append(label, options);
     elements.beatRhythmEditor.append(row);
   });
 }
@@ -182,13 +172,16 @@ function updateBeatRhythm(beatIndex, rhythm) {
   setStatus(`Beat ${beatIndex + 1}: ${getBeatRhythmLabel(rhythm)}`);
 }
 
-function handleBeatRhythmChange(event) {
+function handleBeatRhythmClick(event) {
   const control = event.target.closest("[data-beat-rhythm]");
   if (!control) {
     return;
   }
 
-  updateBeatRhythm(Number(control.dataset.beatRhythm), control.value);
+  updateBeatRhythm(
+    Number(control.dataset.beatRhythm),
+    control.dataset.rhythmValue
+  );
 }
 
 function readStateFromControls() {
@@ -214,23 +207,6 @@ function readStateFromControls() {
       ...app.state.patternChain,
       enabled: elements.patternEnabled.checked,
     },
-    polyrhythm: {
-      enabled: elements.polyrhythmEnabled.checked,
-      scope: elements.polyrhythmScope.value,
-      pulses: elements.polyrhythmPulses.value,
-    },
-    trainer: {
-      enabled: elements.trainerEnabled.checked,
-      mode: Number(elements.trainerRandomPercent.value) > 0 ? "random" : "fixed",
-      playBars: elements.trainerPlayBars.value,
-      muteBars: elements.trainerMuteBars.value,
-      randomMutePercent: elements.trainerRandomPercent.value,
-      hideMutedVisuals: elements.trainerHideVisuals.checked,
-    },
-    timer: {
-      ...app.state.timer,
-      minutes: elements.timerMinutes.value,
-    },
   });
 }
 
@@ -246,15 +222,6 @@ function syncControlsFromState() {
   elements.volumeControl.value = state.volume;
   elements.countInBars.value = state.countInBars;
   elements.patternEnabled.checked = state.patternChain.enabled;
-  elements.polyrhythmEnabled.checked = state.polyrhythm.enabled;
-  elements.polyrhythmScope.value = state.polyrhythm.scope;
-  elements.polyrhythmPulses.value = state.polyrhythm.pulses;
-  elements.trainerEnabled.checked = state.trainer.enabled;
-  elements.trainerPlayBars.value = state.trainer.playBars;
-  elements.trainerMuteBars.value = state.trainer.muteBars;
-  elements.trainerRandomPercent.value = state.trainer.randomMutePercent;
-  elements.trainerHideVisuals.checked = state.trainer.hideMutedVisuals;
-  elements.timerMinutes.value = state.timer.minutes;
 }
 
 function cycleAccentLevel(level) {
@@ -373,9 +340,6 @@ function render() {
   elements.muteToggle.textContent = app.state.muted ? "Unmute" : "Mute";
   elements.muteToggle.setAttribute("aria-pressed", String(app.state.muted));
   elements.playToggle.textContent = app.playing ? "Stop" : "Play";
-  if (!app.timerId) {
-    elements.timerToggle.textContent = "Timer";
-  }
   elements.pendulum.hidden = app.state.visualMode !== "pendulum";
   renderBeatGrid();
   renderBeatRhythmEditor();
@@ -644,72 +608,6 @@ function handlePatternSegmentClick(event) {
   removePatternSegment(Number(removeButton.dataset.patternRemove));
 }
 
-function loadPresets() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY) || "[]");
-    app.presets = Array.isArray(parsed)
-      ? parsed.map(validatePreset).filter(Boolean)
-      : [];
-  } catch {
-    app.presets = [];
-  }
-  return app.presets;
-}
-
-function savePresets(presets = app.presets) {
-  const nextPresets = presets.map(validatePreset).filter(Boolean);
-  try {
-    localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(nextPresets));
-  } catch {
-    setStatus("Presets are unavailable in this browser");
-    return false;
-  }
-  app.presets = nextPresets;
-  return true;
-}
-
-function renderPresets() {
-  elements.presetList.replaceChildren();
-  if (app.presets.length === 0) {
-    const option = new Option("No presets saved", "");
-    elements.presetList.add(option);
-    elements.presetList.disabled = true;
-    return;
-  }
-
-  elements.presetList.disabled = false;
-  elements.presetList.add(new Option("Load preset...", ""));
-  for (const preset of app.presets) {
-    elements.presetList.add(new Option(preset.name, preset.id));
-  }
-}
-
-function saveCurrentPreset() {
-  const name = elements.presetName.value.trim() || "Practice setup";
-  const preset = createPreset(name, readStateFromControls());
-  if (!savePresets([...app.presets, preset])) {
-    return;
-  }
-  renderPresets();
-  elements.presetList.value = preset.id;
-  elements.presetName.value = "";
-  setStatus(`Saved ${preset.name}`);
-}
-
-function loadSelectedPreset() {
-  const preset = app.presets.find((item) => item.id === elements.presetList.value);
-  if (!preset) {
-    return;
-  }
-
-  app.state = createDefaultState(preset.state);
-  syncControlsFromState();
-  renderPatternSegments();
-  refreshPlaybackSchedule();
-  render();
-  setStatus(`Loaded ${preset.name}`);
-}
-
 function getAudioContext() {
   if (!app.audioContext) {
     const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
@@ -948,60 +846,6 @@ function togglePlayback() {
   }
 }
 
-function formatTime(seconds) {
-  const safeSeconds = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const remainder = safeSeconds % 60;
-  return `${minutes}:${String(remainder).padStart(2, "0")}`;
-}
-
-function startTimer() {
-  stopTimer();
-  app.state = readStateFromControls();
-  app.timerRemainingSeconds = app.state.timer.minutes * 60;
-  elements.timerToggle.textContent = formatTime(app.timerRemainingSeconds);
-  app.timerId = window.setTimeout(timerTick, 1000);
-  setStatus(`Timer ${formatTime(app.timerRemainingSeconds)}`);
-}
-
-function timerTick() {
-  app.timerRemainingSeconds -= 1;
-  elements.timerToggle.textContent = formatTime(app.timerRemainingSeconds);
-
-  if (app.timerRemainingSeconds <= 0) {
-    stopTimer();
-    if (app.state.timer.autoStopMetronome && app.playing) {
-      stopPlayback();
-    }
-    setStatus("Timer complete");
-    return;
-  }
-
-  app.timerId = window.setTimeout(timerTick, 1000);
-}
-
-function stopTimer() {
-  window.clearTimeout(app.timerId);
-  app.timerId = null;
-  app.timerRemainingSeconds = 0;
-  elements.timerToggle.textContent = "Timer";
-}
-
-function toggleTimer() {
-  app.state = readStateFromControls();
-
-  if (app.timerId) {
-    stopTimer();
-    setStatus("Timer stopped");
-    return;
-  }
-
-  startTimer();
-  if (app.state.timer.autoStartMetronome && !app.playing) {
-    startPlayback();
-  }
-}
-
 function handleShortcut(event) {
   const target = event.target;
   if (
@@ -1036,7 +880,6 @@ function handleShortcut(event) {
 
 function wireControls() {
   elements.playToggle.addEventListener("click", togglePlayback);
-  elements.timerToggle.addEventListener("click", toggleTimer);
   elements.tempoDown.addEventListener("click", () => changeTempo(-1));
   elements.tempoUp.addEventListener("click", () => changeTempo(1));
   elements.tempoInput.addEventListener("input", updateFromControls);
@@ -1048,18 +891,9 @@ function wireControls() {
     elements.meterBeats,
     elements.meterUnit,
     elements.patternEnabled,
-    elements.polyrhythmEnabled,
-    elements.polyrhythmPulses,
-    elements.polyrhythmScope,
     elements.soundStyle,
     elements.subdivisionSelect,
     elements.tempoMode,
-    elements.timerMinutes,
-    elements.trainerEnabled,
-    elements.trainerHideVisuals,
-    elements.trainerMuteBars,
-    elements.trainerPlayBars,
-    elements.trainerRandomPercent,
     elements.visualMode,
     elements.volumeControl,
   ]) {
@@ -1068,18 +902,14 @@ function wireControls() {
   }
 
   elements.addPatternSegment.addEventListener("click", addPatternSegment);
-  elements.beatRhythmEditor.addEventListener("change", handleBeatRhythmChange);
+  elements.beatRhythmEditor.addEventListener("click", handleBeatRhythmClick);
   elements.patternSegments.addEventListener("input", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("change", handlePatternSegmentInput);
   elements.patternSegments.addEventListener("click", handlePatternSegmentClick);
-  elements.savePreset.addEventListener("click", saveCurrentPreset);
-  elements.presetList.addEventListener("change", loadSelectedPreset);
   window.addEventListener("keydown", handleShortcut);
 }
 
-loadPresets();
 wireControls();
 syncControlsFromState();
 renderPatternSegments();
-renderPresets();
 render();

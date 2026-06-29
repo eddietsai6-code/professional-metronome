@@ -20,11 +20,6 @@ const requiredIds = [
   "soundStyle",
   "volumeControl",
   "countInBars",
-  "trainerEnabled",
-  "timerMinutes",
-  "presetName",
-  "savePreset",
-  "presetList",
   "statusText",
   "muteToggle",
   "tempoMode",
@@ -32,19 +27,11 @@ const requiredIds = [
   "tempoModeLabel",
   "meterReadout",
   "subdivisionReadout",
-  "trainerPlayBars",
-  "trainerMuteBars",
-  "trainerRandomPercent",
-  "trainerHideVisuals",
-  "timerToggle",
   "pendulum",
   "patternEnabled",
   "beatRhythmEditor",
   "patternSegments",
   "addPatternSegment",
-  "polyrhythmEnabled",
-  "polyrhythmScope",
-  "polyrhythmPulses",
 ];
 
 test("app shell links the stylesheet and module script", () => {
@@ -58,13 +45,20 @@ test("app shell exposes stable DOM ids for the metronome UI", () => {
   }
 });
 
-test("app shell has semantic regions for display, controls, tools, practice, and presets", () => {
+test("app shell has simplified semantic regions without advanced panels", () => {
   assert.match(html, /<main\b[^>]*class=["'][^"']*\bmetronome-app\b/);
   assert.match(html, /<section\b[^>]*class=["'][^"']*\bdisplay-panel\b/);
   assert.match(html, /<section\b[^>]*class=["'][^"']*\bcontrol-panel\b/);
   assert.match(html, /<section\b[^>]*class=["'][^"']*\btool-grid\b/);
-  assert.match(html, /<section\b[^>]*class=["'][^"']*\bpractice-panel\b/);
-  assert.match(html, /<section\b[^>]*class=["'][^"']*\bpreset-panel\b/);
+  assert.match(html, /<section\b[^>]*class=["'][^"']*\bpattern-panel\b/);
+  assert.doesNotMatch(html, /\bpolyrhythm-panel\b/);
+  assert.doesNotMatch(html, /\bpractice-panel\b/);
+  assert.doesNotMatch(html, /\bpreset-panel\b/);
+});
+
+test("brand header uses the requested Eddie rhythm logo", () => {
+  assert.match(html, /Eddie\.RHYTHM/);
+  assert.doesNotMatch(html, /RHYTHM\.CORE/);
 });
 
 test("visual mode options match core visual state values", () => {
@@ -101,55 +95,44 @@ test("subdivision options expose expanded rhythm choices", () => {
   ]);
 });
 
-test("browser state enables random trainer mode from random mute percent", () => {
-  assert.match(
-    appJs,
-    /mode:\s*Number\(elements\.trainerRandomPercent\.value\)\s*>\s*0\s*\?\s*"random"\s*:\s*"fixed"/
-  );
-});
-
-test("preset saves only update browser state after storage succeeds", () => {
-  assert.match(appJs, /function savePresets\(presets = app\.presets\) \{/);
-  assert.match(appJs, /return false;/);
-  assert.match(appJs, /return true;/);
-  assert.match(appJs, /if \(!savePresets\(\[\.\.\.app\.presets, preset\]\)\) \{\s*return;\s*\}/);
-});
-
-test("timer control toggles the active practice countdown", () => {
-  assert.match(appJs, /function formatTime\(seconds\) \{/);
-  assert.match(appJs, /function toggleTimer\(\) \{/);
-  assert.match(appJs, /elements\.playToggle\.addEventListener\("click", togglePlayback\)/);
-  assert.match(appJs, /elements\.timerToggle\.addEventListener\("click", toggleTimer\)/);
+test("advanced practice, polyrhythm, timer, and preset UI are removed from the shell", () => {
+  assert.doesNotMatch(html, /Polyrhythm|Practice|Presets|Timer minutes|Saved presets/);
+  assert.doesNotMatch(html, /id=["']timerToggle["']/);
+  assert.doesNotMatch(appJs, /timerToggle|toggleTimer|savePresets|loadPresets|polyrhythmEnabled|trainerEnabled|presetList/);
 });
 
 test("app imports core scheduler helpers for browser playback", () => {
-  assert.match(appJs, /\bcreateSchedule,\s*\n\s*getAudibleEventLevel,\s*\n\s*getBeatDurationSeconds,/);
+  assert.match(appJs, /\bcreateSchedule,\s*\n\s*getAudibleEventLevel,\s*\n\s*getScheduleEndTime,/);
   assert.match(appJs, /\bgetScheduleEndTime,/);
   assert.match(appJs, /createSchedule\(\{\s*state: createDefaultState\(\{/);
   assert.match(appJs, /getAudibleEventLevel\(event, app\.state\.muted\)/);
 });
 
-test("app wires pattern chain and polyrhythm controls", () => {
+test("app wires pattern chain and symbol rhythm controls", () => {
   assert.match(appJs, /function renderPatternSegments\(\) \{/);
   assert.match(appJs, /function renderBeatRhythmEditor\(\) \{/);
   assert.match(appJs, /function updateBeatRhythm\(/);
   assert.match(appJs, /function updatePatternSegment\(/);
   assert.match(appJs, /patternEnabled/);
-  assert.match(appJs, /polyrhythmEnabled/);
+  assert.match(appJs, /beat-rhythm-option/);
 });
 
-test("per-beat rhythm editor extends the existing metronome UI", () => {
+test("per-beat rhythm editor uses symbol buttons instead of English selects", () => {
   assert.match(html, /Beat Rhythm/);
   assert.match(html, /id=["']beatRhythmEditor["']/);
   assert.match(appJs, /const BEAT_RHYTHM_OPTIONS = \[/);
+  assert.match(appJs, /symbol:/);
   assert.match(appJs, /data-beat-rhythm/);
+  assert.match(appJs, /aria-pressed/);
+  assert.doesNotMatch(appJs, /createBeatRhythmSelect/);
+  assert.doesNotMatch(appJs, /Beat \$\{index \+ 1\} rhythm/);
   assert.doesNotMatch(html, /Note Library/);
   assert.doesNotMatch(appJs, /createNoteChainSchedule/);
 });
 
 test("tap tempo remains visible in the main interface", () => {
   assert.match(html, /id=["']tapTempo["']/);
-  assert.doesNotMatch(styles, /#tapTempo,\s*\n#timerToggle\s*\{\s*display:\s*none;/);
+  assert.doesNotMatch(styles, /#tapTempo[\s\S]{0,80}display:\s*none;/);
 });
 
 test("hardware-inspired interface classes are present", () => {
@@ -159,6 +142,7 @@ test("hardware-inspired interface classes are present", () => {
   assert.match(styles, /--control-orange:/);
   assert.match(styles, /\.beat-rhythm-editor/);
   assert.match(styles, /\.beat-rhythm-row/);
+  assert.match(styles, /\.beat-rhythm-option/);
   assert.match(styles, /\.device-header/);
 });
 
@@ -215,11 +199,11 @@ test("app passes bar offsets into appended schedule windows", () => {
   assert.doesNotMatch(appJs, /barIndex:\s*event\.barIndex \+ app\.nextBarIndex/);
 });
 
-test("app wires keyboard shortcuts and timer controls", () => {
+test("app wires keyboard shortcuts and core controls", () => {
   assert.match(appJs, /keydown/);
   assert.match(appJs, /handleShortcut/);
-  assert.match(appJs, /startTimer/);
-  assert.match(appJs, /stopTimer/);
+  assert.match(appJs, /elements\.playToggle\.addEventListener\("click", togglePlayback\)/);
+  assert.match(appJs, /elements\.tapTempo\.addEventListener\("click", handleTapTempo\)/);
 });
 
 test("keyboard shortcuts ignore focused buttons", () => {
