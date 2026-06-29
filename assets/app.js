@@ -18,13 +18,87 @@ const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
 
 const BEAT_RHYTHM_OPTIONS = [
-  { value: "inherit", symbol: "↺", label: "跟随全局" },
-  { value: "quarter", symbol: "♩", label: "四分音符" },
-  { value: "eighth", symbol: "♫", label: "两个八分音符" },
-  { value: "triplet", symbol: "♪³", label: "三连音" },
-  { value: "sixteenth", symbol: "♬", label: "四个十六分音符" },
-  { value: "rest", symbol: "𝄽", label: "休止" },
+  { value: "quarter", label: "Quarter note" },
+  { value: "eighth", label: "Two eighth notes" },
+  { value: "eighth-rest-note", label: "Eighth rest then note" },
+  { value: "triplet", label: "Triplet" },
+  { value: "triplet-rest-note-note", label: "Triplet rest note note" },
+  { value: "triplet-note-rest-note", label: "Triplet note rest note" },
+  { value: "triplet-note-note-rest", label: "Triplet note note rest" },
+  { value: "sixteenth", label: "Four sixteenth notes" },
+  { value: "sixteenth-rest-note-rest-note", label: "Sixteenth rest note rest note" },
+  { value: "sixteenth-pair-eighth", label: "Two sixteenths then eighth" },
+  { value: "eighth-sixteenth-pair", label: "Eighth then two sixteenths" },
+  { value: "dotted-eighth-sixteenth", label: "Dotted eighth then sixteenth" },
+  { value: "sixteenth-dotted-eighth", label: "Sixteenth then dotted eighth" },
+  { value: "sixteenth-eighth-sixteenth", label: "Sixteenth eighth sixteenth" },
 ];
+
+const RHYTHM_DRAWINGS = {
+  quarter: {
+    notes: [{ x: 54, y: 61 }],
+  },
+  eighth: {
+    notes: [{ x: 42, y: 61 }, { x: 68, y: 61 }],
+    beams: [{ from: 48, to: 74, y: 25, count: 1 }],
+  },
+  "eighth-rest-note": {
+    rests: [{ x: 39, y: 38 }],
+    notes: [{ x: 69, y: 61, flag: true }],
+  },
+  triplet: {
+    tuplet: true,
+    notes: [{ x: 35, y: 61 }, { x: 55, y: 61 }, { x: 75, y: 61 }],
+    beams: [{ from: 41, to: 81, y: 27, count: 1 }],
+  },
+  "triplet-rest-note-note": {
+    tuplet: true,
+    rests: [{ x: 35, y: 38 }],
+    notes: [{ x: 55, y: 61 }, { x: 75, y: 61 }],
+    beams: [{ from: 61, to: 81, y: 31, count: 1 }],
+  },
+  "triplet-note-rest-note": {
+    tuplet: true,
+    rests: [{ x: 55, y: 38 }],
+    notes: [{ x: 35, y: 61 }, { x: 75, y: 61 }],
+  },
+  "triplet-note-note-rest": {
+    tuplet: true,
+    rests: [{ x: 75, y: 38 }],
+    notes: [{ x: 35, y: 61 }, { x: 55, y: 61 }],
+    beams: [{ from: 41, to: 61, y: 31, count: 1 }],
+  },
+  sixteenth: {
+    notes: [{ x: 31, y: 61 }, { x: 47, y: 61 }, { x: 63, y: 61 }, { x: 79, y: 61 }],
+    beams: [{ from: 37, to: 85, y: 24, count: 2 }],
+  },
+  "sixteenth-rest-note-rest-note": {
+    rests: [{ x: 31, y: 38 }, { x: 63, y: 38 }],
+    notes: [{ x: 47, y: 61 }, { x: 79, y: 61 }],
+  },
+  "sixteenth-pair-eighth": {
+    notes: [{ x: 36, y: 61 }, { x: 53, y: 61 }, { x: 76, y: 61 }],
+    beams: [{ from: 42, to: 82, y: 24, count: 1 }, { from: 42, to: 59, y: 33, count: 1 }],
+  },
+  "eighth-sixteenth-pair": {
+    notes: [{ x: 34, y: 61 }, { x: 58, y: 61 }, { x: 75, y: 61 }],
+    beams: [{ from: 40, to: 81, y: 24, count: 1 }, { from: 64, to: 81, y: 33, count: 1 }],
+  },
+  "dotted-eighth-sixteenth": {
+    notes: [{ x: 39, y: 61, dotted: true }, { x: 73, y: 61 }],
+    beams: [{ from: 45, to: 79, y: 24, count: 2 }],
+  },
+  "sixteenth-dotted-eighth": {
+    notes: [{ x: 37, y: 61 }, { x: 70, y: 61, dotted: true }],
+    beams: [{ from: 43, to: 76, y: 24, count: 2 }],
+  },
+  "sixteenth-eighth-sixteenth": {
+    notes: [{ x: 34, y: 61 }, { x: 56, y: 61 }, { x: 78, y: 61 }],
+    beams: [{ from: 40, to: 84, y: 24, count: 1 }, { from: 40, to: 46, y: 33, count: 1 }, { from: 78, to: 84, y: 33, count: 1 }],
+  },
+};
+
+const SVG_NS = "http://www.w3.org/2000/svg";
 document.documentElement.dataset.appVersion = APP_VERSION;
 
 const elements = {
@@ -88,22 +162,131 @@ function getSelectedSubdivisionLabel() {
   return getSubdivisionLabel(elements.subdivisionSelect.value);
 }
 
+function createSvgElement(tagName, attributes = {}) {
+  const element = document.createElementNS(SVG_NS, tagName);
+  for (const [name, value] of Object.entries(attributes)) {
+    element.setAttribute(name, String(value));
+  }
+  return element;
+}
+
+function appendSvgElement(parent, tagName, attributes = {}) {
+  const element = createSvgElement(tagName, attributes);
+  parent.append(element);
+  return element;
+}
+
+function appendRhythmNote(svg, note) {
+  appendSvgElement(svg, "ellipse", {
+    class: "rhythm-note-head",
+    cx: note.x,
+    cy: note.y,
+    rx: 7.8,
+    ry: 5.2,
+    transform: `rotate(-18 ${note.x} ${note.y})`,
+  });
+  appendSvgElement(svg, "line", {
+    class: "rhythm-stem",
+    x1: note.x + 6,
+    y1: note.y - 2,
+    x2: note.x + 6,
+    y2: 24,
+  });
+
+  if (note.flag) {
+    appendSvgElement(svg, "path", {
+      class: "rhythm-flag",
+      d: `M ${note.x + 6} 24 C ${note.x + 23} 29, ${note.x + 22} 42, ${note.x + 10} 47`,
+    });
+  }
+
+  if (note.dotted) {
+    appendSvgElement(svg, "circle", {
+      class: "rhythm-dot",
+      cx: note.x + 17,
+      cy: note.y - 2,
+      r: 2.2,
+    });
+  }
+}
+
+function appendRhythmRest(svg, rest) {
+  appendSvgElement(svg, "circle", {
+    class: "rhythm-rest-dot",
+    cx: rest.x - 7,
+    cy: rest.y - 4,
+    r: 3.2,
+  });
+  appendSvgElement(svg, "path", {
+    class: "rhythm-rest",
+    d: `M ${rest.x + 1} ${rest.y - 12} C ${rest.x + 15} ${rest.y - 7}, ${rest.x + 14} ${rest.y + 4}, ${rest.x + 2} ${rest.y + 4} L ${rest.x - 7} ${rest.y + 22}`,
+  });
+}
+
+function appendRhythmBeam(svg, beam) {
+  for (let index = 0; index < beam.count; index += 1) {
+    const y = beam.y + index * 8;
+    appendSvgElement(svg, "path", {
+      class: "rhythm-beam",
+      d: `M ${beam.from} ${y} L ${beam.to} ${y} L ${beam.to} ${y + 5} L ${beam.from} ${y + 5} Z`,
+    });
+  }
+}
+
+function appendTupletMark(svg) {
+  appendSvgElement(svg, "path", {
+    class: "rhythm-tuplet-bracket",
+    d: "M 31 16 H 48 M 62 16 H 79 M 31 16 V 21 M 79 16 V 21",
+  });
+  appendSvgElement(svg, "text", {
+    class: "rhythm-tuplet-number",
+    x: 55,
+    y: 19,
+    "text-anchor": "middle",
+  }).textContent = "3";
+}
+
+function createRhythmNotation(option) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const drawing = RHYTHM_DRAWINGS[option.value] ?? RHYTHM_DRAWINGS.quarter;
+  svg.classList.add("rhythm-card-svg");
+  svg.setAttribute("viewBox", "0 0 110 84");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+
+  if (drawing.tuplet) {
+    appendTupletMark(svg);
+  }
+  for (const rest of drawing.rests ?? []) {
+    appendRhythmRest(svg, rest);
+  }
+  for (const note of drawing.notes ?? []) {
+    appendRhythmNote(svg, note);
+  }
+  for (const beam of drawing.beams ?? []) {
+    appendRhythmBeam(svg, beam);
+  }
+
+  return svg;
+}
+
 function getBeatRhythmLabel(value) {
   return (
     BEAT_RHYTHM_OPTIONS.find((option) => option.value === value)?.label ||
-    "Follow global"
+    "Quarter note"
   );
 }
 
 function createBeatRhythmButton(option, beat, index) {
   const button = document.createElement("button");
-  const selected = (beat.rhythm ?? "inherit") === option.value;
+  const rhythm = beat.rhythm === "inherit" ? "quarter" : beat.rhythm;
+  const selected = (rhythm ?? "quarter") === option.value;
   button.type = "button";
   button.className = "beat-rhythm-option";
   button.dataset.beatRhythm = String(index);
   button.dataset.rhythmValue = option.value;
-  button.textContent = option.symbol;
-  button.setAttribute("aria-label", `第 ${index + 1} 拍：${option.label}`);
+  button.replaceChildren(createRhythmNotation(option));
+  button.setAttribute("aria-label", `Beat ${index + 1}: ${option.label}`);
   button.setAttribute("aria-pressed", String(selected));
   button.classList.toggle("is-selected", selected);
   return button;
@@ -123,7 +306,7 @@ function renderBeatRhythmEditor() {
     const options = document.createElement("div");
     options.className = "beat-rhythm-options";
     options.setAttribute("role", "group");
-    options.setAttribute("aria-label", `第 ${index + 1} 拍节奏`);
+    options.setAttribute("aria-label", `Rhythm choices for beat ${index + 1}`);
 
     for (const option of BEAT_RHYTHM_OPTIONS) {
       options.append(createBeatRhythmButton(option, beat, index));

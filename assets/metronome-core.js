@@ -6,7 +6,24 @@ export const BEATS_PER_BAR_MIN = 1;
 export const BEATS_PER_BAR_MAX = 16;
 export const BEAT_UNITS = [2, 4, 8, 16, 32];
 export const ACCENT_LEVELS = ["accent", "secondary", "normal", "rest"];
-export const BEAT_RHYTHMS = ["inherit", "quarter", "eighth", "triplet", "sixteenth", "rest"];
+export const BEAT_RHYTHMS = [
+  "inherit",
+  "quarter",
+  "eighth",
+  "eighth-rest-note",
+  "triplet",
+  "triplet-rest-note-note",
+  "triplet-note-rest-note",
+  "triplet-note-note-rest",
+  "sixteenth",
+  "sixteenth-rest-note-rest-note",
+  "sixteenth-pair-eighth",
+  "eighth-sixteenth-pair",
+  "dotted-eighth-sixteenth",
+  "sixteenth-dotted-eighth",
+  "sixteenth-eighth-sixteenth",
+  "rest",
+];
 export const PATTERN_SEGMENTS_MAX = 8;
 
 const DEFAULT_METER = {
@@ -172,15 +189,85 @@ export function getSubdivisionOffsets(value) {
   return [...SUBDIVISIONS[normalizeSubdivision(value)]];
 }
 
-function getBeatRhythmOffsets(rhythm, fallbackSubdivision) {
+const BEAT_RHYTHM_PATTERNS = {
+  quarter: {
+    offsets: [0],
+    audible: [true],
+  },
+  eighth: {
+    offsets: [0, 0.5],
+    audible: [true, true],
+  },
+  "eighth-rest-note": {
+    offsets: [0, 0.5],
+    audible: [false, true],
+  },
+  triplet: {
+    offsets: [0, 1 / 3, 2 / 3],
+    audible: [true, true, true],
+  },
+  "triplet-rest-note-note": {
+    offsets: [0, 1 / 3, 2 / 3],
+    audible: [false, true, true],
+  },
+  "triplet-note-rest-note": {
+    offsets: [0, 1 / 3, 2 / 3],
+    audible: [true, false, true],
+  },
+  "triplet-note-note-rest": {
+    offsets: [0, 1 / 3, 2 / 3],
+    audible: [true, true, false],
+  },
+  sixteenth: {
+    offsets: [0, 0.25, 0.5, 0.75],
+    audible: [true, true, true, true],
+  },
+  "sixteenth-rest-note-rest-note": {
+    offsets: [0, 0.25, 0.5, 0.75],
+    audible: [false, true, false, true],
+  },
+  "sixteenth-pair-eighth": {
+    offsets: [0, 0.25, 0.5],
+    audible: [true, true, true],
+  },
+  "eighth-sixteenth-pair": {
+    offsets: [0, 0.5, 0.75],
+    audible: [true, true, true],
+  },
+  "dotted-eighth-sixteenth": {
+    offsets: [0, 0.75],
+    audible: [true, true],
+  },
+  "sixteenth-dotted-eighth": {
+    offsets: [0, 0.25],
+    audible: [true, true],
+  },
+  "sixteenth-eighth-sixteenth": {
+    offsets: [0, 0.25, 0.75],
+    audible: [true, true, true],
+  },
+  rest: {
+    offsets: [0],
+    audible: [false],
+  },
+};
+
+function getBeatRhythmPattern(rhythm, fallbackSubdivision) {
   const normalizedRhythm = normalizeBeatRhythm(rhythm);
   if (normalizedRhythm === "inherit") {
-    return getSubdivisionOffsets(fallbackSubdivision);
+    const offsets = getSubdivisionOffsets(fallbackSubdivision);
+    return {
+      rhythm: normalizedRhythm,
+      offsets,
+      audible: offsets.map(() => true),
+    };
   }
-  if (normalizedRhythm === "quarter" || normalizedRhythm === "rest") {
-    return [0];
-  }
-  return getSubdivisionOffsets(normalizedRhythm);
+  const pattern = BEAT_RHYTHM_PATTERNS[normalizedRhythm] ?? BEAT_RHYTHM_PATTERNS.quarter;
+  return {
+    rhythm: normalizedRhythm,
+    offsets: [...pattern.offsets],
+    audible: [...pattern.audible],
+  };
 }
 
 export function clampInteger(value, min, max) {
@@ -316,8 +403,9 @@ export function createSchedule({
     );
 
     for (const beat of barConfig.meter.beats) {
-      const beatRhythm = normalizeBeatRhythm(beat.rhythm);
-      const offsets = getBeatRhythmOffsets(beatRhythm, barConfig.subdivision);
+      const beatPattern = getBeatRhythmPattern(beat.rhythm, barConfig.subdivision);
+      const beatRhythm = beatPattern.rhythm;
+      const offsets = beatPattern.offsets;
       for (
         let subdivisionIndex = 0;
         subdivisionIndex < offsets.length;
@@ -325,7 +413,8 @@ export function createSchedule({
       ) {
         const offset = offsets[subdivisionIndex];
         const isMain = subdivisionIndex === 0;
-        const rested = beat.level === "rest" || beatRhythm === "rest";
+        const silentByPattern = beatPattern.audible[subdivisionIndex] === false;
+        const rested = beat.level === "rest" || silentByPattern;
         const audible = !rested && !mutedByTrainer;
         events.push({
           time: barStart + beat.index * beatDuration + offset * beatDuration,
@@ -333,7 +422,7 @@ export function createSchedule({
           beatIndex: beat.index,
           subdivisionIndex,
           kind: isMain ? "main" : "subdivision",
-          level: isMain && beatRhythm === "rest" ? "rest" : isMain ? beat.level : "subdivision",
+          level: isMain && silentByPattern ? "rest" : isMain ? beat.level : "subdivision",
           audible,
           beatRhythm,
           isCountIn,

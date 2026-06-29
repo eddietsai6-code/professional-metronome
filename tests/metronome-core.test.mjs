@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   ACCENT_LEVELS,
+  BEAT_RHYTHMS,
   SUBDIVISION_OPTIONS,
   TEMPO_MAX,
   TEMPO_MIN,
@@ -318,6 +319,68 @@ test("createSchedule lets each beat override its rhythm pattern", () => {
       { time: 1.166667, beatIndex: 2, subdivisionIndex: 1, kind: "subdivision", audible: true },
       { time: 1.333333, beatIndex: 2, subdivisionIndex: 2, kind: "subdivision", audible: true },
       { time: 1.5, beatIndex: 3, subdivisionIndex: 0, kind: "main", audible: false },
+    ]
+  );
+});
+
+test("beat rhythm library includes the reference rhythm choices", () => {
+  assert.deepEqual(BEAT_RHYTHMS, [
+    "inherit",
+    "quarter",
+    "eighth",
+    "eighth-rest-note",
+    "triplet",
+    "triplet-rest-note-note",
+    "triplet-note-rest-note",
+    "triplet-note-note-rest",
+    "sixteenth",
+    "sixteenth-rest-note-rest-note",
+    "sixteenth-pair-eighth",
+    "eighth-sixteenth-pair",
+    "dotted-eighth-sixteenth",
+    "sixteenth-dotted-eighth",
+    "sixteenth-eighth-sixteenth",
+    "rest",
+  ]);
+});
+
+test("createSchedule supports reference rhythm rests and sixteenth combinations", () => {
+  const state = createDefaultState({
+    meter: {
+      beatsPerBar: 4,
+      beatUnit: 4,
+      beats: [
+        { index: 0, level: "accent", rhythm: "eighth-rest-note" },
+        { index: 1, level: "normal", rhythm: "triplet-note-rest-note" },
+        { index: 2, level: "normal", rhythm: "sixteenth-rest-note-rest-note" },
+        { index: 3, level: "normal", rhythm: "sixteenth-eighth-sixteenth" },
+      ],
+    },
+    subdivision: "none",
+  });
+
+  const events = createSchedule({ state, bars: 1, startTime: 0 });
+
+  assert.deepEqual(
+    events.map((event) => ({
+      time: Number(event.time.toFixed(6)),
+      beatIndex: event.beatIndex,
+      subdivisionIndex: event.subdivisionIndex,
+      audible: event.audible,
+    })),
+    [
+      { time: 0, beatIndex: 0, subdivisionIndex: 0, audible: false },
+      { time: 0.25, beatIndex: 0, subdivisionIndex: 1, audible: true },
+      { time: 0.5, beatIndex: 1, subdivisionIndex: 0, audible: true },
+      { time: 0.666667, beatIndex: 1, subdivisionIndex: 1, audible: false },
+      { time: 0.833333, beatIndex: 1, subdivisionIndex: 2, audible: true },
+      { time: 1, beatIndex: 2, subdivisionIndex: 0, audible: false },
+      { time: 1.125, beatIndex: 2, subdivisionIndex: 1, audible: true },
+      { time: 1.25, beatIndex: 2, subdivisionIndex: 2, audible: false },
+      { time: 1.375, beatIndex: 2, subdivisionIndex: 3, audible: true },
+      { time: 1.5, beatIndex: 3, subdivisionIndex: 0, audible: true },
+      { time: 1.625, beatIndex: 3, subdivisionIndex: 1, audible: true },
+      { time: 1.875, beatIndex: 3, subdivisionIndex: 2, audible: true },
     ]
   );
 });

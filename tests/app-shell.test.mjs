@@ -117,15 +117,44 @@ test("app wires pattern chain and symbol rhythm controls", () => {
   assert.match(appJs, /beat-rhythm-option/);
 });
 
-test("per-beat rhythm editor uses symbol buttons instead of English selects", () => {
+test("per-beat rhythm editor exposes the complete embedded rhythm library", () => {
   assert.match(html, /Beat Rhythm/);
   assert.match(html, /id=["']beatRhythmEditor["']/);
   assert.match(appJs, /const BEAT_RHYTHM_OPTIONS = \[/);
-  assert.match(appJs, /symbol:/);
+  const optionBlock = appJs.match(/const BEAT_RHYTHM_OPTIONS = \[([\s\S]*?)\];/);
+  assert.ok(optionBlock, "missing BEAT_RHYTHM_OPTIONS");
+  const values = [...optionBlock[1].matchAll(/value:\s*"([^"]+)"/g)].map(
+    ([, value]) => value
+  );
+  assert.deepEqual(values, [
+    "quarter",
+    "eighth",
+    "eighth-rest-note",
+    "triplet",
+    "triplet-rest-note-note",
+    "triplet-note-rest-note",
+    "triplet-note-note-rest",
+    "sixteenth",
+    "sixteenth-rest-note-rest-note",
+    "sixteenth-pair-eighth",
+    "eighth-sixteenth-pair",
+    "dotted-eighth-sixteenth",
+    "sixteenth-dotted-eighth",
+    "sixteenth-eighth-sixteenth",
+  ]);
+});
+
+test("per-beat rhythm editor draws SVG notation instead of font glyphs", () => {
   assert.match(appJs, /data-beat-rhythm/);
   assert.match(appJs, /aria-pressed/);
+  assert.match(appJs, /function createRhythmNotation\(/);
+  assert.match(appJs, /createElementNS\("http:\/\/www\.w3\.org\/2000\/svg", "svg"\)/);
+  assert.match(appJs, /classList\.add\("rhythm-card-svg"\)/);
+  assert.doesNotMatch(appJs, /symbol:/);
+  assert.doesNotMatch(appJs, /textContent = option\.symbol/);
   assert.doesNotMatch(appJs, /createBeatRhythmSelect/);
   assert.doesNotMatch(appJs, /Beat \$\{index \+ 1\} rhythm/);
+  assert.doesNotMatch(styles, /Segoe UI Symbol|Noto Music|Arial Unicode MS/);
   assert.doesNotMatch(html, /Note Library/);
   assert.doesNotMatch(appJs, /createNoteChainSchedule/);
 });
