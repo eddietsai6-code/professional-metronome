@@ -1,0 +1,27 @@
+{
+  "name": "professional-metronome",
+  "version": "0.1.0",
+  "description": "A dependency-free static web metronome for music practice and teaching.",
+  "type": "module",
+  "license": "MIT",
+  "author": "eddietsai6-code",
+  "keywords": [
+    "metronome",
+    "web-audio",
+    "static-site",
+    "github-pages",
+    "music-practice",
+    "rhythm",
+    "tempo"
+  ],
+  "scripts": {
+    "build": "node tools/build-static.mjs",
+    "serve": "python -m http.server 4192 --bind 127.0.0.1",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eddietsai6-code/professional-metronome.git"
+  },
+  "homepage": "https://professional-metronome.pages.dev"
+}

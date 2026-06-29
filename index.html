@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Professional Metronome</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <main class="metronome-app" aria-labelledby="appTitle">
+      <section class="display-panel" aria-labelledby="appTitle">
+        <header class="topline">
+          <div>
+            <span class="label" id="tempoModeLabel">BPM</span>
+            <output id="tempoReadout" for="tempoInput">120</output>
+          </div>
+          <div>
+            <span class="label">Meter</span>
+            <output id="meterReadout" for="meterBeats meterUnit">4/4</output>
+          </div>
+          <div>
+            <span class="label">Subdivision</span>
+            <output id="subdivisionReadout" for="subdivisionSelect">Quarter</output>
+          </div>
+        </header>
+
+        <h1 id="appTitle">Professional Metronome</h1>
+        <div id="beatGrid" class="beat-grid" role="group" aria-label="Beat accents"></div>
+        <div id="pendulum" class="pendulum" aria-hidden="true"></div>
+        <p id="statusText" class="status" role="status" aria-live="polite">Ready</p>
+      </section>
+
+      <section class="control-panel" aria-labelledby="transportHeading">
+        <h2 id="transportHeading">Transport</h2>
+        <div class="tempo-controls">
+          <button id="tempoDown" type="button" aria-label="Decrease tempo">-</button>
+          <label>
+            <span class="label">Tempo</span>
+            <input id="tempoInput" type="number" min="30" max="280" step="1" value="120" inputmode="numeric">
+          </label>
+          <button id="tempoUp" type="button" aria-label="Increase tempo">+</button>
+        </div>
+
+        <div class="transport">
+          <button id="playToggle" class="play-button" type="button">Play</button>
+          <button id="tapTempo" type="button">Tap</button>
+          <button id="muteToggle" type="button" aria-pressed="false">Mute</button>
+          <button id="timerToggle" type="button">Timer</button>
+        </div>
+      </section>
+
+      <section class="tool-grid" aria-labelledby="toolsHeading">
+        <h2 id="toolsHeading">Tools</h2>
+        <label>
+          <span class="label">Tempo mode</span>
+          <select id="tempoMode">
+            <option value="BPM" selected>BPM</option>
+            <option value="QPM">QPM</option>
+          </select>
+        </label>
+
+        <label>
+          <span class="label">Beats</span>
+          <input id="meterBeats" type="number" min="1" max="16" step="1" value="4" inputmode="numeric">
+        </label>
+
+        <label>
+          <span class="label">Beat unit</span>
+          <select id="meterUnit">
+            <option value="2">2</option>
+            <option value="4" selected>4</option>
+            <option value="8">8</option>
+            <option value="16">16</option>
+            <option value="32">32</option>
+          </select>
+        </label>
+
+        <label>
+          <span class="label">Subdivision</span>
+          <select id="subdivisionSelect">
+            <option value="none" selected>Quarter</option>
+            <option value="eighth">Eighth</option>
+            <option value="triplet">Triplet</option>
+            <option value="sixteenth">Sixteenth</option>
+            <option value="dotted">Dotted</option>
+          </select>
+        </label>
+
+        <label>
+          <span class="label">Visual mode</span>
+          <select id="visualMode">
+            <option value="all" selected>All beats</option>
+            <option value="accent">Accent</option>
+            <option value="accent-secondary">Accent + secondary</option>
+            <option value="pendulum">Pendulum</option>
+          </select>
+        </label>
+
+        <label>
+          <span class="label">Sound</span>
+          <select id="soundStyle">
+            <option value="digital" selected>Digital</option>
+            <option value="wood">Wood</option>
+            <option value="stick">Stick</option>
+            <option value="beep">Beep</option>
+          </select>
+        </label>
+
+        <label>
+          <span class="label">Volume</span>
+          <input id="volumeControl" type="range" min="0" max="1" step="0.01" value="0.8">
+        </label>
+
+        <label>
+          <span class="label">Count-in bars</span>
+          <input id="countInBars" type="number" min="0" max="8" step="1" value="0" inputmode="numeric">
+        </label>
+      </section>
+
+      <section class="practice-panel" aria-labelledby="practiceHeading">
+        <h2 id="practiceHeading">Practice</h2>
+        <label>
+          <span class="label">Trainer</span>
+          <input id="trainerEnabled" type="checkbox">
+        </label>
+
+        <label>
+          <span class="label">Play bars</span>
+          <input id="trainerPlayBars" type="number" min="1" max="32" step="1" value="3" inputmode="numeric">
+        </label>
+
+        <label>
+          <span class="label">Mute bars</span>
+          <input id="trainerMuteBars" type="number" min="1" max="32" step="1" value="1" inputmode="numeric">
+        </label>
+
+        <label>
+          <span class="label">Random mute</span>
+          <input id="trainerRandomPercent" type="number" min="0" max="100" step="1" value="15" inputmode="numeric">
+        </label>
+
+        <label>
+          <span class="label">Hide muted visuals</span>
+          <input id="trainerHideVisuals" type="checkbox">
+        </label>
+
+        <label>
+          <span class="label">Timer minutes</span>
+          <input id="timerMinutes" type="number" min="1" max="240" step="1" value="10" inputmode="numeric">
+        </label>
+      </section>
+
+      <section class="preset-panel" aria-labelledby="presetHeading">
+        <h2 id="presetHeading">Presets</h2>
+        <label>
+          <span class="label">Preset name</span>
+          <input id="presetName" type="text" autocomplete="off" placeholder="Practice setup">
+        </label>
+        <button id="savePreset" type="button">Save</button>
+        <label>
+          <span class="label">Saved presets</span>
+          <select id="presetList">
+            <option value="">No presets saved</option>
+          </select>
+        </label>
+      </section>
+    </main>
+
+    <script type="module" src="assets/app.js"></script>
+  </body>
+</html>
