@@ -1,4 +1,4 @@
-﻿import {
+import {
   ACCENT_LEVELS,
   APP_VERSION,
   PATTERN_SEGMENTS_MAX,
@@ -22,14 +22,14 @@ const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
 
 const NOTE_LIBRARY = [
-  { id: "whole", name: "Whole", symbol: "𝅝", valueLabel: "1", beats: 4, rest: false },
-  { id: "half", name: "Half", symbol: "𝅗𝅥", valueLabel: "1/2", beats: 2, rest: false },
-  { id: "quarter", name: "Quarter", symbol: "♩", valueLabel: "1/4", beats: 1, rest: false },
-  { id: "eighth", name: "Eighth", symbol: "♪", valueLabel: "1/8", beats: 0.5, rest: false },
-  { id: "sixteenth", name: "Sixteenth", symbol: "♬", valueLabel: "1/16", beats: 0.25, rest: false },
-  { id: "dotted-quarter", name: "Dotted quarter", symbol: "♩.", valueLabel: "1/4.", beats: 1.5, rest: false },
-  { id: "triplet-eighth", name: "Triplet eighth", symbol: "♪3", valueLabel: "1/8T", beats: 1 / 3, rest: false },
-  { id: "quarter-rest", name: "Quarter rest", symbol: "𝄽", valueLabel: "rest", beats: 1, rest: true },
+  { id: "whole", name: "Whole", symbol: "\u{1D15D}", valueLabel: "1", beats: 4, rest: false },
+  { id: "half", name: "Half", symbol: "\u{1D15E}", valueLabel: "1/2", beats: 2, rest: false },
+  { id: "quarter", name: "Quarter", symbol: "\u2669", valueLabel: "1/4", beats: 1, rest: false },
+  { id: "eighth", name: "Eighth", symbol: "\u266A", valueLabel: "1/8", beats: 0.5, rest: false },
+  { id: "sixteenth", name: "Sixteenth", symbol: "\u266C", valueLabel: "1/16", beats: 0.25, rest: false },
+  { id: "dotted-quarter", name: "Dotted quarter", symbol: "\u2669.", valueLabel: "1/4.", beats: 1.5, rest: false },
+  { id: "triplet-eighth", name: "Triplet eighth", symbol: "\u266A3", valueLabel: "1/8T", beats: 1 / 3, rest: false },
+  { id: "quarter-rest", name: "Quarter rest", symbol: "\u{1D13D}", valueLabel: "rest", beats: 1, rest: true },
 ];
 document.documentElement.dataset.appVersion = APP_VERSION;
 
@@ -376,7 +376,7 @@ function render() {
   elements.muteToggle.setAttribute("aria-pressed", String(app.state.muted));
   elements.playToggle.textContent = app.playing ? "Stop" : "Play";
   if (!app.timerId) {
-  elements.timerToggle.textContent = "Timer";
+    elements.timerToggle.textContent = "Timer";
   }
   elements.pendulum.hidden = app.state.visualMode !== "pendulum";
   renderBeatGrid();
