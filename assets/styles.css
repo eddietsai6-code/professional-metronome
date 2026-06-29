@@ -103,6 +103,8 @@ label {
 .display-panel,
 .control-panel,
 .tool-grid,
+.pattern-panel,
+.polyrhythm-panel,
 .practice-panel,
 .preset-panel {
   border: 1px solid var(--line);
@@ -222,6 +224,8 @@ label {
 .tempo-controls,
 .transport,
 .tool-grid,
+.pattern-panel,
+.polyrhythm-panel,
 .practice-panel,
 .preset-panel {
   display: grid;
@@ -259,8 +263,43 @@ label {
 }
 
 .tool-grid,
+.polyrhythm-panel,
 .practice-panel {
   grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+}
+
+.pattern-panel {
+  grid-template-columns: minmax(0, 1fr) 128px;
+  align-items: end;
+}
+
+.pattern-panel h2,
+.pattern-segments {
+  grid-column: 1 / -1;
+}
+
+.inline-toggle {
+  align-content: end;
+}
+
+.pattern-segments {
+  display: grid;
+  gap: 10px;
+}
+
+.pattern-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+}
+
+.pattern-remove {
+  color: var(--muted);
 }
 
 .preset-panel {
@@ -295,6 +334,8 @@ input[type="range"] {
 
   .topline,
   .transport,
+  .pattern-panel,
+  .pattern-row,
   .preset-panel {
     grid-template-columns: 1fr;
   }
@@ -331,6 +372,8 @@ input[type="range"] {
   .display-panel,
   .control-panel,
   .tool-grid,
+  .pattern-panel,
+  .polyrhythm-panel,
   .practice-panel,
   .preset-panel {
     padding: 10px;

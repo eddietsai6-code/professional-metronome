@@ -83,7 +83,13 @@
             <option value="eighth">Eighth</option>
             <option value="triplet">Triplet</option>
             <option value="sixteenth">Sixteenth</option>
+            <option value="quintuplet">Quintuplet</option>
+            <option value="sextuplet">Sextuplet</option>
+            <option value="septuplet">Septuplet</option>
+            <option value="thirtysecond">Thirty-second</option>
             <option value="dotted">Dotted</option>
+            <option value="shuffle">Shuffle</option>
+            <option value="swung-sixteenth">Swung sixteenth</option>
           </select>
         </label>
 
@@ -115,6 +121,35 @@
         <label>
           <span class="label">Count-in bars</span>
           <input id="countInBars" type="number" min="0" max="8" step="1" value="0" inputmode="numeric">
+        </label>
+      </section>
+
+      <section class="pattern-panel" aria-labelledby="patternHeading">
+        <h2 id="patternHeading">Pattern Chain</h2>
+        <label class="inline-toggle">
+          <span class="label">Loop segments</span>
+          <input id="patternEnabled" type="checkbox">
+        </label>
+        <div id="patternSegments" class="pattern-segments" aria-label="Pattern chain segments"></div>
+        <button id="addPatternSegment" type="button">Add segment</button>
+      </section>
+
+      <section class="polyrhythm-panel" aria-labelledby="polyrhythmHeading">
+        <h2 id="polyrhythmHeading">Polyrhythm</h2>
+        <label class="inline-toggle">
+          <span class="label">Overlay</span>
+          <input id="polyrhythmEnabled" type="checkbox">
+        </label>
+        <label>
+          <span class="label">Scope</span>
+          <select id="polyrhythmScope">
+            <option value="bar" selected>Per bar</option>
+            <option value="beat">Per beat</option>
+          </select>
+        </label>
+        <label>
+          <span class="label">Pulses</span>
+          <input id="polyrhythmPulses" type="number" min="1" max="16" step="1" value="3" inputmode="numeric">
         </label>
       </section>
 

@@ -37,6 +37,12 @@ const requiredIds = [
   "trainerHideVisuals",
   "timerToggle",
   "pendulum",
+  "patternEnabled",
+  "patternSegments",
+  "addPatternSegment",
+  "polyrhythmEnabled",
+  "polyrhythmScope",
+  "polyrhythmPulses",
 ];
 
 test("app shell links the stylesheet and module script", () => {
@@ -70,6 +76,29 @@ test("visual mode options match core visual state values", () => {
   assert.deepEqual(values, ["all", "accent", "accent-secondary", "pendulum"]);
 });
 
+test("subdivision options expose expanded rhythm choices", () => {
+  const selectMatch = html.match(/<select\b[^>]*id=["']subdivisionSelect["'][^>]*>([\s\S]*?)<\/select>/);
+  assert.ok(selectMatch, "missing #subdivisionSelect select");
+
+  const values = [...selectMatch[1].matchAll(/<option\b[^>]*value=["']([^"']+)["'][^>]*>/g)].map(
+    ([, value]) => value
+  );
+
+  assert.deepEqual(values, [
+    "none",
+    "eighth",
+    "triplet",
+    "sixteenth",
+    "quintuplet",
+    "sextuplet",
+    "septuplet",
+    "thirtysecond",
+    "dotted",
+    "shuffle",
+    "swung-sixteenth",
+  ]);
+});
+
 test("browser state enables random trainer mode from random mute percent", () => {
   assert.match(
     appJs,
@@ -93,8 +122,16 @@ test("timer control toggles the active practice countdown", () => {
 
 test("app imports core scheduler helpers for browser playback", () => {
   assert.match(appJs, /\bcreateSchedule,\s*\n\s*getAudibleEventLevel,\s*\n\s*getBeatDurationSeconds,/);
+  assert.match(appJs, /\bgetScheduleEndTime,/);
   assert.match(appJs, /createSchedule\(\{\s*state: createDefaultState\(\{/);
   assert.match(appJs, /getAudibleEventLevel\(event, app\.state\.muted\)/);
+});
+
+test("app wires pattern chain and polyrhythm controls", () => {
+  assert.match(appJs, /function renderPatternSegments\(\) \{/);
+  assert.match(appJs, /function updatePatternSegment\(/);
+  assert.match(appJs, /patternEnabled/);
+  assert.match(appJs, /polyrhythmEnabled/);
 });
 
 test("app uses Web Audio and avoids setInterval for audible timing", () => {
@@ -135,14 +172,12 @@ test("scheduler does not rebuild early over an active schedule", () => {
 test("scheduler appends continuous windows without repeating count-in", () => {
   assert.match(appJs, /nextScheduleTime:\s*0/);
   assert.match(appJs, /nextBarIndex:\s*0/);
-  assert.match(appJs, /function getBarDurationSeconds\(\) \{/);
-  assert.match(appJs, /getBeatDurationSeconds\(\{\s*tempo: app\.state\.tempo,/);
   assert.match(appJs, /function rebuildSchedule\(\{\s*includeCountIn = true\s*\} = \{\}\) \{/);
   assert.match(appJs, /countInBars: includeCountIn \? app\.state\.countInBars : 0/);
-  assert.match(appJs, /app\.nextScheduleTime =\s*app\.startedAt \+ \(countInBars \+ SCHEDULE_BARS\) \* barDurationSeconds/);
+  assert.match(appJs, /app\.nextScheduleTime = getScheduleEndTime\(app\.schedule, app\.startedAt\)/);
   assert.match(appJs, /function appendScheduleWindow\(\) \{/);
   assert.match(appJs, /countInBars: 0/);
-  assert.match(appJs, /app\.nextScheduleTime \+= SCHEDULE_BARS \* barDurationSeconds/);
+  assert.match(appJs, /getScheduleEndTime\(\s*appendedEvents,\s*app\.nextScheduleTime\s*\)/);
   assert.match(appJs, /app\.nextBarIndex \+= SCHEDULE_BARS/);
   assert.match(appJs, /appendScheduleWindow\(\);/);
 });

@@ -1,12 +1,15 @@
 import {
   ACCENT_LEVELS,
   APP_VERSION,
+  SUBDIVISION_OPTIONS,
   calculateTapTempo,
+  createPatternSegment,
   createDefaultState,
   createPreset,
   createSchedule,
   getAudibleEventLevel,
   getBeatDurationSeconds,
+  getScheduleEndTime,
   normalizeMeter,
   validatePreset,
 } from "./metronome-core.js";
@@ -27,7 +30,13 @@ const elements = {
   meterUnit: document.querySelector("#meterUnit"),
   muteToggle: document.querySelector("#muteToggle"),
   pendulum: document.querySelector("#pendulum"),
+  patternEnabled: document.querySelector("#patternEnabled"),
+  patternSegments: document.querySelector("#patternSegments"),
+  addPatternSegment: document.querySelector("#addPatternSegment"),
   playToggle: document.querySelector("#playToggle"),
+  polyrhythmEnabled: document.querySelector("#polyrhythmEnabled"),
+  polyrhythmPulses: document.querySelector("#polyrhythmPulses"),
+  polyrhythmScope: document.querySelector("#polyrhythmScope"),
   presetList: document.querySelector("#presetList"),
   presetName: document.querySelector("#presetName"),
   savePreset: document.querySelector("#savePreset"),
@@ -55,6 +64,7 @@ const elements = {
 
 const app = {
   activeBeatIndex: -1,
+  activeSegmentIndex: -1,
   audioContext: null,
   masterGain: null,
   nextBarIndex: 0,
@@ -77,11 +87,15 @@ function setStatus(message) {
   elements.statusText.textContent = message;
 }
 
-function getSelectedSubdivisionLabel() {
+function getSubdivisionLabel(value) {
   return (
-    elements.subdivisionSelect.selectedOptions[0]?.textContent?.trim() ||
+    SUBDIVISION_OPTIONS.find((option) => option.value === value)?.label ||
     "Quarter"
   );
+}
+
+function getSelectedSubdivisionLabel() {
+  return getSubdivisionLabel(elements.subdivisionSelect.value);
 }
 
 function readStateFromControls() {
@@ -103,6 +117,15 @@ function readStateFromControls() {
     muted: app.state.muted,
     soundStyle: elements.soundStyle.value,
     visualMode: elements.visualMode.value,
+    patternChain: {
+      ...app.state.patternChain,
+      enabled: elements.patternEnabled.checked,
+    },
+    polyrhythm: {
+      enabled: elements.polyrhythmEnabled.checked,
+      scope: elements.polyrhythmScope.value,
+      pulses: elements.polyrhythmPulses.value,
+    },
     trainer: {
       enabled: elements.trainerEnabled.checked,
       mode: Number(elements.trainerRandomPercent.value) > 0 ? "random" : "fixed",
@@ -129,6 +152,10 @@ function syncControlsFromState() {
   elements.soundStyle.value = state.soundStyle;
   elements.volumeControl.value = state.volume;
   elements.countInBars.value = state.countInBars;
+  elements.patternEnabled.checked = state.patternChain.enabled;
+  elements.polyrhythmEnabled.checked = state.polyrhythm.enabled;
+  elements.polyrhythmScope.value = state.polyrhythm.scope;
+  elements.polyrhythmPulses.value = state.polyrhythm.pulses;
   elements.trainerEnabled.checked = state.trainer.enabled;
   elements.trainerPlayBars.value = state.trainer.playBars;
   elements.trainerMuteBars.value = state.trainer.muteBars;
@@ -143,8 +170,37 @@ function cycleAccentLevel(level) {
   return ACCENT_LEVELS[nextIndex] ?? "normal";
 }
 
+function getDisplaySegment() {
+  if (!app.state.patternChain.enabled) {
+    return null;
+  }
+  return (
+    app.state.patternChain.segments[app.activeSegmentIndex] ||
+    app.state.patternChain.segments[0] ||
+    null
+  );
+}
+
+function getEditableSegmentIndex() {
+  if (!app.state.patternChain.enabled) {
+    return -1;
+  }
+  return app.activeSegmentIndex >= 0 ? app.activeSegmentIndex : 0;
+}
+
+function getDisplayMeter() {
+  const segment = getDisplaySegment();
+  if (segment) {
+    return segment.meter;
+  }
+  if (app.state.patternChain.enabled) {
+    return app.state.patternChain.segments[0]?.meter ?? app.state.meter;
+  }
+  return app.state.meter;
+}
+
 function renderBeatGrid() {
-  const beats = app.state.meter.beats;
+  const beats = getDisplayMeter().beats;
   elements.beatGrid.style.setProperty("--beat-count", beats.length);
 
   for (let index = elements.beatGrid.children.length; index < beats.length; index += 1) {
@@ -152,19 +208,40 @@ function renderBeatGrid() {
     button.className = "beat";
     button.type = "button";
     button.addEventListener("click", () => {
-      const beat = app.state.meter.beats[index];
-      const nextBeats = app.state.meter.beats.map((item, beatIndex) =>
+      const segmentIndex = getEditableSegmentIndex();
+      const meter = segmentIndex >= 0
+        ? app.state.patternChain.segments[segmentIndex].meter
+        : app.state.meter;
+      const beat = meter.beats[index];
+      const nextBeats = meter.beats.map((item, beatIndex) =>
         beatIndex === index
           ? { ...item, level: cycleAccentLevel(beat.level) }
           : item
       );
-      app.state = createDefaultState({
-        ...app.state,
-        meter: { ...app.state.meter, beats: nextBeats },
-      });
+
+      if (segmentIndex >= 0) {
+        const segments = app.state.patternChain.segments.map((segment, itemIndex) =>
+          itemIndex === segmentIndex
+            ? {
+                ...segment,
+                meter: { ...segment.meter, beats: nextBeats },
+              }
+            : segment
+        );
+        app.state = createDefaultState({
+          ...app.state,
+          patternChain: { ...app.state.patternChain, segments },
+        });
+        renderPatternSegments();
+      } else {
+        app.state = createDefaultState({
+          ...app.state,
+          meter: { ...app.state.meter, beats: nextBeats },
+        });
+      }
       refreshPlaybackSchedule();
       render();
-      setStatus(`Beat ${index + 1}: ${app.state.meter.beats[index].level}`);
+      setStatus(`Beat ${index + 1}: ${getDisplayMeter().beats[index].level}`);
     });
     elements.beatGrid.append(button);
   }
@@ -186,12 +263,19 @@ function renderBeatGrid() {
 }
 
 function render() {
-  elements.tempoReadout.value = app.state.tempo;
-  elements.tempoReadout.textContent = app.state.tempo;
-  elements.tempoModeLabel.textContent = app.state.tempoMode;
-  elements.meterReadout.value = `${app.state.meter.beatsPerBar}/${app.state.meter.beatUnit}`;
+  const segment = getDisplaySegment();
+  const displayMeter = getDisplayMeter();
+  const displayTempo = segment?.tempo ?? app.state.tempo;
+  const displayTempoMode = segment?.tempoMode ?? app.state.tempoMode;
+  const displaySubdivision = segment?.subdivision ?? app.state.subdivision;
+  elements.tempoReadout.value = displayTempo;
+  elements.tempoReadout.textContent = displayTempo;
+  elements.tempoModeLabel.textContent = displayTempoMode;
+  elements.meterReadout.value = segment
+    ? `${segment.name} ${displayMeter.beatsPerBar}/${displayMeter.beatUnit}`
+    : `${displayMeter.beatsPerBar}/${displayMeter.beatUnit}`;
   elements.meterReadout.textContent = elements.meterReadout.value;
-  elements.subdivisionReadout.value = getSelectedSubdivisionLabel();
+  elements.subdivisionReadout.value = getSubdivisionLabel(displaySubdivision);
   elements.subdivisionReadout.textContent = elements.subdivisionReadout.value;
   elements.muteToggle.textContent = app.state.muted ? "Unmute" : "Mute";
   elements.muteToggle.setAttribute("aria-pressed", String(app.state.muted));
@@ -244,6 +328,215 @@ function toggleMute() {
   refreshPlaybackSchedule();
   render();
   setStatus(app.state.muted ? "Muted" : "Unmuted");
+}
+
+function createField(labelText, control) {
+  const label = document.createElement("label");
+  const labelSpan = document.createElement("span");
+  labelSpan.className = "label";
+  labelSpan.textContent = labelText;
+  label.append(labelSpan, control);
+  return label;
+}
+
+function createPatternInput(field, value, options = {}) {
+  const input = document.createElement("input");
+  input.dataset.patternField = field;
+  input.value = value;
+  input.type = options.type ?? "text";
+  if (options.min != null) {
+    input.min = options.min;
+  }
+  if (options.max != null) {
+    input.max = options.max;
+  }
+  if (options.step != null) {
+    input.step = options.step;
+  }
+  if (options.inputMode) {
+    input.inputMode = options.inputMode;
+  }
+  return input;
+}
+
+function createPatternSelect(field, value, options) {
+  const select = document.createElement("select");
+  select.dataset.patternField = field;
+  for (const option of options) {
+    select.add(new Option(option.label, option.value));
+  }
+  select.value = value;
+  return select;
+}
+
+function renderPatternSegments() {
+  elements.patternSegments.replaceChildren();
+
+  app.state.patternChain.segments.forEach((segment, index) => {
+    const row = document.createElement("div");
+    row.className = "pattern-row";
+    row.dataset.patternIndex = String(index);
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "pattern-remove";
+    removeButton.dataset.patternRemove = String(index);
+    removeButton.textContent = "Remove";
+    removeButton.disabled = app.state.patternChain.segments.length <= 1;
+
+    row.append(
+      createField("Name", createPatternInput("name", segment.name)),
+      createField(
+        "Bars",
+        createPatternInput("bars", segment.bars, {
+          type: "number",
+          min: "1",
+          max: "32",
+          step: "1",
+          inputMode: "numeric",
+        })
+      ),
+      createField(
+        "Tempo",
+        createPatternInput("tempo", segment.tempo, {
+          type: "number",
+          min: "30",
+          max: "280",
+          step: "1",
+          inputMode: "numeric",
+        })
+      ),
+      createField(
+        "Beats",
+        createPatternInput("beatsPerBar", segment.meter.beatsPerBar, {
+          type: "number",
+          min: "1",
+          max: "16",
+          step: "1",
+          inputMode: "numeric",
+        })
+      ),
+      createField(
+        "Unit",
+        createPatternSelect("beatUnit", segment.meter.beatUnit, [
+          { value: "2", label: "2" },
+          { value: "4", label: "4" },
+          { value: "8", label: "8" },
+          { value: "16", label: "16" },
+          { value: "32", label: "32" },
+        ])
+      ),
+      createField(
+        "Subdivision",
+        createPatternSelect("subdivision", segment.subdivision, SUBDIVISION_OPTIONS)
+      ),
+      removeButton
+    );
+
+    elements.patternSegments.append(row);
+  });
+}
+
+function updatePatternSegment(index, field, value) {
+  const segments = app.state.patternChain.segments.map((segment, itemIndex) => {
+    if (itemIndex !== index) {
+      return segment;
+    }
+
+    const nextSegment = { ...segment, meter: { ...segment.meter } };
+    if (field === "beatsPerBar") {
+      nextSegment.meter = normalizeMeter({
+        ...nextSegment.meter,
+        beatsPerBar: value,
+      });
+    } else if (field === "beatUnit") {
+      nextSegment.meter = normalizeMeter({
+        ...nextSegment.meter,
+        beatUnit: value,
+      });
+    } else {
+      nextSegment[field] = value;
+    }
+
+    return createPatternSegment(nextSegment, app.state, itemIndex);
+  });
+
+  app.state = createDefaultState({
+    ...readStateFromControls(),
+    patternChain: {
+      enabled: elements.patternEnabled.checked,
+      segments,
+    },
+  });
+  refreshPlaybackSchedule();
+  render();
+}
+
+function handlePatternSegmentInput(event) {
+  const control = event.target.closest("[data-pattern-field]");
+  const row = event.target.closest("[data-pattern-index]");
+  if (!control || !row) {
+    return;
+  }
+
+  updatePatternSegment(
+    Number(row.dataset.patternIndex),
+    control.dataset.patternField,
+    control.value
+  );
+}
+
+function removePatternSegment(index) {
+  if (app.state.patternChain.segments.length <= 1) {
+    return;
+  }
+
+  const segments = app.state.patternChain.segments.filter(
+    (_, itemIndex) => itemIndex !== index
+  );
+  app.activeSegmentIndex = -1;
+  app.state = createDefaultState({
+    ...readStateFromControls(),
+    patternChain: { enabled: elements.patternEnabled.checked, segments },
+  });
+  renderPatternSegments();
+  refreshPlaybackSchedule();
+  render();
+}
+
+function addPatternSegment() {
+  const nextIndex = app.state.patternChain.segments.length;
+  const nextSegment = createPatternSegment(
+    {
+      name: `Pattern ${nextIndex + 1}`,
+      bars: 1,
+      tempo: app.state.tempo,
+      tempoMode: app.state.tempoMode,
+      meter: { beatsPerBar: 7, beatUnit: 8 },
+      subdivision: "eighth",
+    },
+    app.state,
+    nextIndex
+  );
+  app.state = createDefaultState({
+    ...readStateFromControls(),
+    patternChain: {
+      enabled: elements.patternEnabled.checked,
+      segments: [...app.state.patternChain.segments, nextSegment],
+    },
+  });
+  renderPatternSegments();
+  refreshPlaybackSchedule();
+  render();
+  setStatus(`Added ${nextSegment.name}`);
+}
+
+function handlePatternSegmentClick(event) {
+  const removeButton = event.target.closest("[data-pattern-remove]");
+  if (!removeButton) {
+    return;
+  }
+  removePatternSegment(Number(removeButton.dataset.patternRemove));
 }
 
 function loadPresets() {
@@ -306,6 +599,7 @@ function loadSelectedPreset() {
 
   app.state = createDefaultState(preset.state);
   syncControlsFromState();
+  renderPatternSegments();
   refreshPlaybackSchedule();
   render();
   setStatus(`Loaded ${preset.name}`);
@@ -334,24 +628,28 @@ function getClickProfile(level, soundStyle) {
       secondary: [990, 0.16],
       normal: [760, 0.12],
       subdivision: [520, 0.07],
+      polyrhythm: [360, 0.08],
     },
     wood: {
       accent: [980, 0.24],
       secondary: [760, 0.17],
       normal: [590, 0.12],
       subdivision: [420, 0.07],
+      polyrhythm: [310, 0.08],
     },
     stick: {
       accent: [1550, 0.2],
       secondary: [1180, 0.15],
       normal: [880, 0.1],
       subdivision: [660, 0.06],
+      polyrhythm: [480, 0.08],
     },
     beep: {
       accent: [880, 0.16],
       secondary: [660, 0.12],
       normal: [550, 0.09],
       subdivision: [440, 0.05],
+      polyrhythm: [330, 0.08],
     },
   };
 
@@ -405,16 +703,6 @@ function cancelScheduledNodes() {
   app.scheduledNodes.clear();
 }
 
-function getBarDurationSeconds() {
-  return (
-    getBeatDurationSeconds({
-      tempo: app.state.tempo,
-      tempoMode: app.state.tempoMode,
-      beatUnit: app.state.meter.beatUnit,
-    }) * app.state.meter.beatsPerBar
-  );
-}
-
 function rebuildSchedule({ includeCountIn = true } = {}) {
   const context = getAudioContext();
   if (!context) {
@@ -426,7 +714,6 @@ function rebuildSchedule({ includeCountIn = true } = {}) {
   }
 
   const countInBars = includeCountIn ? app.state.countInBars : 0;
-  const barDurationSeconds = getBarDurationSeconds();
   app.startedAt = context.currentTime + 0.08;
   app.schedule = createSchedule({
     state: createDefaultState({
@@ -437,13 +724,11 @@ function rebuildSchedule({ includeCountIn = true } = {}) {
     startTime: app.startedAt,
   });
   app.scheduledIndex = 0;
-  app.nextScheduleTime =
-    app.startedAt + (countInBars + SCHEDULE_BARS) * barDurationSeconds;
+  app.nextScheduleTime = getScheduleEndTime(app.schedule, app.startedAt);
   app.nextBarIndex = SCHEDULE_BARS;
 }
 
 function appendScheduleWindow() {
-  const barDurationSeconds = getBarDurationSeconds();
   const appendedEvents = createSchedule({
     state: createDefaultState({ ...app.state, countInBars: 0 }),
     bars: SCHEDULE_BARS,
@@ -452,7 +737,10 @@ function appendScheduleWindow() {
   });
 
   app.schedule = [...app.schedule, ...appendedEvents];
-  app.nextScheduleTime += SCHEDULE_BARS * barDurationSeconds;
+  app.nextScheduleTime = getScheduleEndTime(
+    appendedEvents,
+    app.nextScheduleTime
+  );
   app.nextBarIndex += SCHEDULE_BARS;
 }
 
@@ -502,6 +790,7 @@ function visualTick() {
   }
 
   app.activeBeatIndex = current?.visual === false ? -1 : current?.beatIndex ?? -1;
+  app.activeSegmentIndex = current?.segmentIndex ?? -1;
   render();
   app.rafId = window.requestAnimationFrame(visualTick);
 }
@@ -533,6 +822,7 @@ function startPlayback() {
 function stopPlayback() {
   app.playing = false;
   app.activeBeatIndex = -1;
+  app.activeSegmentIndex = -1;
   window.clearTimeout(app.schedulerTimer);
   window.cancelAnimationFrame(app.rafId);
   app.schedulerTimer = null;
@@ -653,6 +943,10 @@ function wireControls() {
     elements.countInBars,
     elements.meterBeats,
     elements.meterUnit,
+    elements.patternEnabled,
+    elements.polyrhythmEnabled,
+    elements.polyrhythmPulses,
+    elements.polyrhythmScope,
     elements.soundStyle,
     elements.subdivisionSelect,
     elements.tempoMode,
@@ -669,6 +963,10 @@ function wireControls() {
     control.addEventListener("change", updateFromControls);
   }
 
+  elements.addPatternSegment.addEventListener("click", addPatternSegment);
+  elements.patternSegments.addEventListener("input", handlePatternSegmentInput);
+  elements.patternSegments.addEventListener("change", handlePatternSegmentInput);
+  elements.patternSegments.addEventListener("click", handlePatternSegmentClick);
   elements.savePreset.addEventListener("click", saveCurrentPreset);
   elements.presetList.addEventListener("change", loadSelectedPreset);
   window.addEventListener("keydown", handleShortcut);
@@ -677,5 +975,6 @@ function wireControls() {
 loadPresets();
 wireControls();
 syncControlsFromState();
+renderPatternSegments();
 renderPresets();
 render();

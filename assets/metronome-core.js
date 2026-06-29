@@ -6,6 +6,7 @@ export const BEATS_PER_BAR_MIN = 1;
 export const BEATS_PER_BAR_MAX = 16;
 export const BEAT_UNITS = [2, 4, 8, 16, 32];
 export const ACCENT_LEVELS = ["accent", "secondary", "normal", "rest"];
+export const PATTERN_SEGMENTS_MAX = 8;
 
 const DEFAULT_METER = {
   beatsPerBar: 4,
@@ -85,16 +86,29 @@ export function normalizeTempoMode(mode) {
 
 export function createDefaultState(overrides = {}) {
   const normalizedOverrides = overrides ?? {};
+  const tempo = clampTempo(normalizedOverrides.tempo ?? 120);
+  const tempoMode = normalizeTempoMode(normalizedOverrides.tempoMode);
+  const meter = normalizeMeter(normalizedOverrides.meter);
+  const subdivision = normalizeSubdivision(normalizedOverrides.subdivision);
+  const baseState = {
+    tempo,
+    tempoMode,
+    meter,
+    subdivision,
+  };
+
   return {
-    tempo: clampTempo(normalizedOverrides.tempo ?? 120),
-    tempoMode: normalizeTempoMode(normalizedOverrides.tempoMode),
-    meter: normalizeMeter(normalizedOverrides.meter),
-    subdivision: normalizeSubdivision(normalizedOverrides.subdivision),
+    ...baseState,
     countInBars: normalizeCountInBars(normalizedOverrides.countInBars),
     volume: clampNumber(normalizedOverrides.volume ?? 0.8, 0, 1),
     muted: Boolean(normalizedOverrides.muted),
     soundStyle: normalizedOverrides.soundStyle ?? "digital",
     visualMode: normalizedOverrides.visualMode ?? "all",
+    patternChain: normalizePatternChain(
+      normalizedOverrides.patternChain,
+      baseState
+    ),
+    polyrhythm: normalizePolyrhythm(normalizedOverrides.polyrhythm),
     trainer: normalizeTrainer(normalizedOverrides.trainer),
     timer: {
       enabled: Boolean(normalizedOverrides.timer?.enabled),
@@ -121,8 +135,28 @@ export const SUBDIVISIONS = {
   eighth: [0, 0.5],
   triplet: [0, 1 / 3, 2 / 3],
   sixteenth: [0, 0.25, 0.5, 0.75],
+  quintuplet: [0, 0.2, 0.4, 0.6, 0.8],
+  sextuplet: [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6],
+  septuplet: [0, 1 / 7, 2 / 7, 3 / 7, 4 / 7, 5 / 7, 6 / 7],
+  thirtysecond: [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875],
   dotted: [0, 0.75],
+  shuffle: [0, 2 / 3],
+  "swung-sixteenth": [0, 1 / 3, 0.5, 5 / 6],
 };
+
+export const SUBDIVISION_OPTIONS = [
+  { value: "none", label: "Quarter" },
+  { value: "eighth", label: "Eighth" },
+  { value: "triplet", label: "Triplet" },
+  { value: "sixteenth", label: "Sixteenth" },
+  { value: "quintuplet", label: "Quintuplet" },
+  { value: "sextuplet", label: "Sextuplet" },
+  { value: "septuplet", label: "Septuplet" },
+  { value: "thirtysecond", label: "Thirty-second" },
+  { value: "dotted", label: "Dotted" },
+  { value: "shuffle", label: "Shuffle" },
+  { value: "swung-sixteenth", label: "Swung sixteenth" },
+];
 
 export function normalizeSubdivision(value) {
   return Object.hasOwn(SUBDIVISIONS, value) ? value : "none";
@@ -138,6 +172,54 @@ export function clampInteger(value, min, max) {
 
 export function normalizeCountInBars(value) {
   return clampInteger(value ?? 0, 0, 8);
+}
+
+export function createPatternSegment(segment = {}, fallbackState = {}, index = 0) {
+  const safeSegment = segment ?? {};
+  const safeFallback = fallbackState ?? {};
+  const name = String(safeSegment.name ?? `Pattern ${index + 1}`).trim();
+
+  return {
+    id: String(safeSegment.id || `segment-${index + 1}`),
+    name: name || `Pattern ${index + 1}`,
+    bars: clampInteger(safeSegment.bars ?? 1, 1, 32),
+    tempo: clampTempo(safeSegment.tempo ?? safeFallback.tempo ?? 120),
+    tempoMode: normalizeTempoMode(
+      safeSegment.tempoMode ?? safeFallback.tempoMode
+    ),
+    meter: normalizeMeter(safeSegment.meter ?? safeFallback.meter),
+    subdivision: normalizeSubdivision(
+      safeSegment.subdivision ?? safeFallback.subdivision
+    ),
+  };
+}
+
+export function normalizePatternChain(chain = {}, fallbackState = {}) {
+  const safeChain = chain ?? {};
+  const sourceSegments = Array.isArray(safeChain.segments)
+    ? safeChain.segments.slice(0, PATTERN_SEGMENTS_MAX)
+    : [];
+  const segments =
+    sourceSegments.length > 0
+      ? sourceSegments.map((segment, index) =>
+          createPatternSegment(segment, fallbackState, index)
+        )
+      : [createPatternSegment({ name: "Pattern 1" }, fallbackState, 0)];
+
+  return {
+    enabled: Boolean(safeChain.enabled) && segments.length > 0,
+    segments,
+  };
+}
+
+export function normalizePolyrhythm(polyrhythm = {}) {
+  const safePolyrhythm = polyrhythm ?? {};
+
+  return {
+    enabled: Boolean(safePolyrhythm.enabled),
+    scope: safePolyrhythm.scope === "beat" ? "beat" : "bar",
+    pulses: clampInteger(safePolyrhythm.pulses ?? 3, 1, 16),
+  };
 }
 
 export function normalizeTrainer(trainer = {}) {
@@ -181,33 +263,43 @@ export function createSchedule({
   safeState.meter = normalizeMeter(state?.meter ?? safeState.meter);
   safeState.subdivision = normalizeSubdivision(state?.subdivision);
   safeState.countInBars = normalizeCountInBars(state?.countInBars);
+  safeState.patternChain = normalizePatternChain(
+    state?.patternChain,
+    safeState
+  );
+  safeState.polyrhythm = normalizePolyrhythm(state?.polyrhythm);
   safeState.trainer = normalizeTrainer(state?.trainer);
 
   const events = [];
-  const beatDuration = getBeatDurationSeconds({
-    tempo: safeState.tempo,
-    tempoMode: safeState.tempoMode,
-    beatUnit: safeState.meter.beatUnit,
-  });
-  const barDuration = beatDuration * safeState.meter.beatsPerBar;
-  const offsets = getSubdivisionOffsets(safeState.subdivision);
   const totalMainBars = clampInteger(bars, 1, 256);
   const safeBarOffset = clampInteger(barOffset, 0, 1000000);
   const firstBar =
     safeState.countInBars > 0 ? -safeState.countInBars : safeState.countInBars;
   const lastBar = totalMainBars - 1;
+  let currentBarStart = startTime;
 
   for (let barIndex = firstBar; barIndex <= lastBar; barIndex += 1) {
     const isCountIn = barIndex < 0;
     const globalBarIndex = isCountIn ? barIndex : barIndex + safeBarOffset;
+    const barConfig = isCountIn
+      ? getBaseBarConfig(safeState)
+      : getMainBarConfig(safeState, globalBarIndex);
+    const beatDuration = getBeatDurationSeconds({
+      tempo: barConfig.tempo,
+      tempoMode: barConfig.tempoMode,
+      beatUnit: barConfig.meter.beatUnit,
+    });
+    const barDuration = beatDuration * barConfig.meter.beatsPerBar;
+    const barStart = currentBarStart;
+    const barEndTime = barStart + barDuration;
+    const offsets = getSubdivisionOffsets(barConfig.subdivision);
     const mutedByTrainer = isTrainerMutedBar(
       globalBarIndex,
       safeState.trainer,
       random
     );
-    const barStart = startTime + (barIndex - firstBar) * barDuration;
 
-    for (const beat of safeState.meter.beats) {
+    for (const beat of barConfig.meter.beats) {
       for (
         let subdivisionIndex = 0;
         subdivisionIndex < offsets.length;
@@ -228,12 +320,173 @@ export function createSchedule({
           isCountIn,
           mutedByTrainer,
           visual: !(mutedByTrainer && safeState.trainer.hideMutedVisuals),
+          segmentIndex: barConfig.segmentIndex,
+          segmentName: barConfig.segmentName,
+          beatsPerBar: barConfig.meter.beatsPerBar,
+          beatUnit: barConfig.meter.beatUnit,
+          barEndTime,
         });
       }
     }
+
+    if (!isCountIn && safeState.polyrhythm.enabled) {
+      events.push(
+        ...createPolyrhythmEvents({
+          barConfig,
+          barStart,
+          barEndTime,
+          beatDuration,
+          barDuration,
+          barIndex: globalBarIndex,
+          mutedByTrainer,
+          polyrhythm: safeState.polyrhythm,
+          trainer: safeState.trainer,
+        })
+      );
+    }
+
+    currentBarStart = barEndTime;
+  }
+
+  return events.sort((left, right) => {
+    const timeOrder = left.time - right.time;
+    if (timeOrder !== 0) {
+      return timeOrder;
+    }
+    return eventKindOrder(left.kind) - eventKindOrder(right.kind);
+  });
+}
+
+function eventKindOrder(kind) {
+  if (kind === "main") {
+    return 0;
+  }
+  if (kind === "polyrhythm") {
+    return 1;
+  }
+  return 2;
+}
+
+function getBaseBarConfig(state) {
+  return {
+    tempo: state.tempo,
+    tempoMode: state.tempoMode,
+    meter: state.meter,
+    subdivision: state.subdivision,
+    segmentIndex: -1,
+    segmentName: "Base",
+  };
+}
+
+function getMainBarConfig(state, globalBarIndex) {
+  if (!state.patternChain.enabled) {
+    return getBaseBarConfig(state);
+  }
+
+  const segments = state.patternChain.segments;
+  const cycleBars = segments.reduce((total, segment) => total + segment.bars, 0);
+  let cyclePosition = globalBarIndex % cycleBars;
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (cyclePosition < segment.bars) {
+      return {
+        ...segment,
+        segmentIndex: index,
+        segmentName: segment.name,
+      };
+    }
+    cyclePosition -= segment.bars;
+  }
+
+  return {
+    ...segments[0],
+    segmentIndex: 0,
+    segmentName: segments[0].name,
+  };
+}
+
+function createPolyrhythmEvents({
+  barConfig,
+  barStart,
+  barEndTime,
+  beatDuration,
+  barDuration,
+  barIndex,
+  mutedByTrainer,
+  polyrhythm,
+  trainer,
+}) {
+  const events = [];
+  const audible = !mutedByTrainer;
+  const visual = !(mutedByTrainer && trainer.hideMutedVisuals);
+
+  if (polyrhythm.scope === "beat") {
+    for (const beat of barConfig.meter.beats) {
+      if (beat.level === "rest") {
+        continue;
+      }
+      for (let pulseIndex = 0; pulseIndex < polyrhythm.pulses; pulseIndex += 1) {
+        events.push({
+          time:
+            barStart +
+            beat.index * beatDuration +
+            (pulseIndex / polyrhythm.pulses) * beatDuration,
+          barIndex,
+          beatIndex: beat.index,
+          subdivisionIndex: pulseIndex,
+          kind: "polyrhythm",
+          level: "polyrhythm",
+          audible,
+          isCountIn: false,
+          mutedByTrainer,
+          visual,
+          segmentIndex: barConfig.segmentIndex,
+          segmentName: barConfig.segmentName,
+          beatsPerBar: barConfig.meter.beatsPerBar,
+          beatUnit: barConfig.meter.beatUnit,
+          barEndTime,
+        });
+      }
+    }
+    return events;
+  }
+
+  for (let pulseIndex = 0; pulseIndex < polyrhythm.pulses; pulseIndex += 1) {
+    const time = barStart + (pulseIndex / polyrhythm.pulses) * barDuration;
+    events.push({
+      time,
+      barIndex,
+      beatIndex: Math.min(
+        barConfig.meter.beatsPerBar - 1,
+        Math.floor((time - barStart) / beatDuration)
+      ),
+      subdivisionIndex: pulseIndex,
+      kind: "polyrhythm",
+      level: "polyrhythm",
+      audible,
+      isCountIn: false,
+      mutedByTrainer,
+      visual,
+      segmentIndex: barConfig.segmentIndex,
+      segmentName: barConfig.segmentName,
+      beatsPerBar: barConfig.meter.beatsPerBar,
+      beatUnit: barConfig.meter.beatUnit,
+      barEndTime,
+    });
   }
 
   return events;
+}
+
+export function getScheduleEndTime(events = [], fallbackStartTime = 0) {
+  const safeEvents = Array.isArray(events) ? events : [];
+  return safeEvents.reduce((endTime, event) => {
+    const eventEnd = Number.isFinite(event?.barEndTime)
+      ? event.barEndTime
+      : event?.time;
+    return Number.isFinite(eventEnd) ? Math.max(endTime, eventEnd) : endTime;
+  }, fallbackStartTime);
 }
 
 export function calculateTapTempo(

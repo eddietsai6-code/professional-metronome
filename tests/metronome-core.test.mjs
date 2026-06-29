@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   ACCENT_LEVELS,
+  SUBDIVISION_OPTIONS,
   TEMPO_MAX,
   TEMPO_MIN,
   calculateTapTempo,
@@ -12,10 +13,13 @@ import {
   createSchedule,
   getAudibleEventLevel,
   getBeatDurationSeconds,
+  getScheduleEndTime,
   getSubdivisionOffsets,
   getVisualBeatState,
   isTrainerMutedBar,
   normalizeMeter,
+  normalizePatternChain,
+  normalizePolyrhythm,
   normalizeTrainer,
   resizeBeats,
   validatePreset,
@@ -159,6 +163,81 @@ test("getSubdivisionOffsets returns stable musical offsets", () => {
   assert.deepEqual(getSubdivisionOffsets("dotted"), [0, 0.75]);
 });
 
+test("expanded subdivisions include common professional rhythm choices", () => {
+  assert.deepEqual(
+    SUBDIVISION_OPTIONS.map((option) => option.value),
+    [
+      "none",
+      "eighth",
+      "triplet",
+      "sixteenth",
+      "quintuplet",
+      "sextuplet",
+      "septuplet",
+      "thirtysecond",
+      "dotted",
+      "shuffle",
+      "swung-sixteenth",
+    ]
+  );
+  assert.deepEqual(getSubdivisionOffsets("quintuplet"), [0, 0.2, 0.4, 0.6, 0.8]);
+  assert.deepEqual(getSubdivisionOffsets("sextuplet"), [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6]);
+  assert.deepEqual(getSubdivisionOffsets("septuplet"), [0, 1 / 7, 2 / 7, 3 / 7, 4 / 7, 5 / 7, 6 / 7]);
+  assert.equal(getSubdivisionOffsets("thirtysecond").length, 8);
+  assert.deepEqual(getSubdivisionOffsets("shuffle"), [0, 2 / 3]);
+  assert.deepEqual(getSubdivisionOffsets("swung-sixteenth"), [0, 1 / 3, 0.5, 5 / 6]);
+});
+
+test("normalizePatternChain sanitizes independent segment settings", () => {
+  const chain = normalizePatternChain(
+    {
+      enabled: true,
+      segments: [
+        {
+          name: "  A section  ",
+          bars: 2,
+          tempo: 144,
+          tempoMode: "QPM",
+          meter: {
+            beatsPerBar: 7,
+            beatUnit: 8,
+            beats: [{ level: "accent" }, { level: "secondary" }],
+          },
+          subdivision: "quintuplet",
+        },
+      ],
+    },
+    createDefaultState()
+  );
+
+  assert.equal(chain.enabled, true);
+  assert.equal(chain.segments.length, 1);
+  assert.equal(chain.segments[0].name, "A section");
+  assert.equal(chain.segments[0].bars, 2);
+  assert.equal(chain.segments[0].tempo, 144);
+  assert.equal(chain.segments[0].tempoMode, "QPM");
+  assert.equal(chain.segments[0].meter.beatsPerBar, 7);
+  assert.equal(chain.segments[0].meter.beatUnit, 8);
+  assert.equal(chain.segments[0].subdivision, "quintuplet");
+  assert.deepEqual(
+    chain.segments[0].meter.beats.map((beat) => beat.level).slice(0, 3),
+    ["accent", "secondary", "normal"]
+  );
+});
+
+test("normalizePolyrhythm keeps overlay pulses inside playable bounds", () => {
+  assert.deepEqual(normalizePolyrhythm(null), {
+    enabled: false,
+    scope: "bar",
+    pulses: 3,
+  });
+  assert.deepEqual(normalizePolyrhythm({ enabled: true, scope: "beat", pulses: 99 }), {
+    enabled: true,
+    scope: "beat",
+    pulses: 16,
+  });
+});
+
 test("createSchedule creates main beat events for one bar", () => {
   const state = createDefaultState();
   const events = createSchedule({ state, bars: 1, startTime: 10 });
@@ -202,6 +281,105 @@ test("createSchedule places subdivisions inside each beat", () => {
       ["main", 0],
       ["subdivision", 0.166667],
       ["subdivision", 0.333333],
+    ]
+  );
+});
+
+test("createSchedule cycles pattern chain segments with independent meters", () => {
+  const state = createDefaultState({
+    patternChain: {
+      enabled: true,
+      segments: [
+        {
+          name: "Four",
+          bars: 2,
+          tempo: 120,
+          tempoMode: "BPM",
+          meter: { beatsPerBar: 4, beatUnit: 4 },
+          subdivision: "none",
+        },
+        {
+          name: "Seven",
+          bars: 1,
+          tempo: 120,
+          tempoMode: "BPM",
+          meter: { beatsPerBar: 7, beatUnit: 8 },
+          subdivision: "none",
+        },
+      ],
+    },
+  });
+  const events = createSchedule({ state, bars: 3, startTime: 0 });
+  const mainEvents = events.filter((event) => event.kind === "main");
+
+  assert.equal(mainEvents.length, 15);
+  assert.deepEqual(
+    mainEvents.map((event) => ({
+      barIndex: event.barIndex,
+      beatIndex: event.beatIndex,
+      segmentName: event.segmentName,
+      segmentIndex: event.segmentIndex,
+      time: Number(event.time.toFixed(6)),
+      beatsPerBar: event.beatsPerBar,
+      beatUnit: event.beatUnit,
+    })),
+    [
+      { barIndex: 0, beatIndex: 0, segmentName: "Four", segmentIndex: 0, time: 0, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 0, beatIndex: 1, segmentName: "Four", segmentIndex: 0, time: 0.5, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 0, beatIndex: 2, segmentName: "Four", segmentIndex: 0, time: 1, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 0, beatIndex: 3, segmentName: "Four", segmentIndex: 0, time: 1.5, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 1, beatIndex: 0, segmentName: "Four", segmentIndex: 0, time: 2, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 1, beatIndex: 1, segmentName: "Four", segmentIndex: 0, time: 2.5, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 1, beatIndex: 2, segmentName: "Four", segmentIndex: 0, time: 3, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 1, beatIndex: 3, segmentName: "Four", segmentIndex: 0, time: 3.5, beatsPerBar: 4, beatUnit: 4 },
+      { barIndex: 2, beatIndex: 0, segmentName: "Seven", segmentIndex: 1, time: 4, beatsPerBar: 7, beatUnit: 8 },
+      { barIndex: 2, beatIndex: 1, segmentName: "Seven", segmentIndex: 1, time: 4.5, beatsPerBar: 7, beatUnit: 8 },
+      { barIndex: 2, beatIndex: 2, segmentName: "Seven", segmentIndex: 1, time: 5, beatsPerBar: 7, beatUnit: 8 },
+      { barIndex: 2, beatIndex: 3, segmentName: "Seven", segmentIndex: 1, time: 5.5, beatsPerBar: 7, beatUnit: 8 },
+      { barIndex: 2, beatIndex: 4, segmentName: "Seven", segmentIndex: 1, time: 6, beatsPerBar: 7, beatUnit: 8 },
+      { barIndex: 2, beatIndex: 5, segmentName: "Seven", segmentIndex: 1, time: 6.5, beatsPerBar: 7, beatUnit: 8 },
+      { barIndex: 2, beatIndex: 6, segmentName: "Seven", segmentIndex: 1, time: 7, beatsPerBar: 7, beatUnit: 8 },
+    ]
+  );
+  assert.equal(getScheduleEndTime(events, 0), 7.5);
+});
+
+test("createSchedule adds bar-scoped polyrhythm overlay events", () => {
+  const state = createDefaultState({
+    polyrhythm: { enabled: true, scope: "bar", pulses: 3 },
+  });
+  const events = createSchedule({ state, bars: 1, startTime: 0 });
+  const polyEvents = events.filter((event) => event.kind === "polyrhythm");
+
+  assert.equal(polyEvents.length, 3);
+  assert.deepEqual(
+    polyEvents.map((event) => Number(event.time.toFixed(6))),
+    [0, 0.666667, 1.333333]
+  );
+  assert.deepEqual(
+    polyEvents.map((event) => event.level),
+    ["polyrhythm", "polyrhythm", "polyrhythm"]
+  );
+});
+
+test("createSchedule adds beat-scoped polyrhythm overlay events", () => {
+  const state = createDefaultState({
+    meter: { beatsPerBar: 2, beatUnit: 4 },
+    polyrhythm: { enabled: true, scope: "beat", pulses: 3 },
+  });
+  const events = createSchedule({ state, bars: 1, startTime: 0 });
+  const polyEvents = events.filter((event) => event.kind === "polyrhythm");
+
+  assert.equal(polyEvents.length, 6);
+  assert.deepEqual(
+    polyEvents.map((event) => [event.beatIndex, Number(event.time.toFixed(6))]),
+    [
+      [0, 0],
+      [0, 0.166667],
+      [0, 0.333333],
+      [1, 0.5],
+      [1, 0.666667],
+      [1, 0.833333],
     ]
   );
 });

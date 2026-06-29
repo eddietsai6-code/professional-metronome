@@ -12,6 +12,10 @@ This is a browser app that can be committed to GitHub and hosted as static files
 - Beat units: 2, 4, 8, 16, 32
 - Per-beat accent states: accent, secondary, normal, rest
 - Subdivisions: eighth, triplet, sixteenth, dotted feel
+- Expanded subdivisions: quintuplet, sextuplet, septuplet, thirty-second, shuffle, swung sixteenth
+- Pattern chain playback, such as two bars of 4/4 followed by one bar of 7/8
+- Per-pattern tempo, meter, beat unit, subdivision, and loop bars
+- Polyrhythm overlays by bar or by beat, with 1 to 16 overlay pulses
 - Count-in from 0 to 8 bars
 - Visual beat grid and pendulum-style mode
 - Tap tempo
