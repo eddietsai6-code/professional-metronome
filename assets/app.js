@@ -157,6 +157,7 @@ const elements = {
 
 const app = {
   activeBeatIndex: -1,
+  activeRhythmPickerIndex: -1,
   activeSegmentIndex: -1,
   audioContext: null,
   masterGain: null,
@@ -305,9 +306,41 @@ function getBeatRhythmLabel(value) {
   );
 }
 
-function createBeatRhythmButton(option, beat, index) {
+function getBeatRhythmOption(value) {
+  return (
+    BEAT_RHYTHM_OPTIONS.find((option) => option.value === value) ||
+    BEAT_RHYTHM_OPTIONS[0]
+  );
+}
+
+function getBeatDisplayRhythm(beat) {
+  return beat.rhythm === "inherit" ? "quarter" : beat.rhythm;
+}
+
+function createBeatRhythmCurrentButton(beat, index) {
+  const option = getBeatRhythmOption(getBeatDisplayRhythm(beat));
   const button = document.createElement("button");
-  const rhythm = beat.rhythm === "inherit" ? "quarter" : beat.rhythm;
+  const label = document.createElement("span");
+
+  button.type = "button";
+  button.className = "beat-rhythm-current";
+  button.dataset.beatRhythmToggle = String(index);
+  button.setAttribute("aria-label", `Beat ${index + 1}: ${option.label}`);
+  button.setAttribute(
+    "aria-expanded",
+    String(app.activeRhythmPickerIndex === index)
+  );
+  button.setAttribute("aria-controls", `beat-rhythm-picker-${index}`);
+
+  label.className = "beat-rhythm-index";
+  label.textContent = String(index + 1);
+  button.append(label, createRhythmNotation(option));
+  return button;
+}
+
+function createBeatRhythmOptionButton(option, beat, index) {
+  const button = document.createElement("button");
+  const rhythm = getBeatDisplayRhythm(beat);
   const selected = (rhythm ?? "quarter") === option.value;
   button.type = "button";
   button.className = "beat-rhythm-option";
@@ -322,27 +355,37 @@ function createBeatRhythmButton(option, beat, index) {
 
 function renderBeatRhythmEditor() {
   elements.beatRhythmEditor.replaceChildren();
+  const meter = getDisplayMeter();
+  const chain = document.createElement("div");
 
-  getDisplayMeter().beats.forEach((beat, index) => {
-    const row = document.createElement("div");
-    row.className = "beat-rhythm-row";
+  if (app.activeRhythmPickerIndex >= meter.beats.length) {
+    app.activeRhythmPickerIndex = -1;
+  }
 
-    const label = document.createElement("span");
-    label.className = "beat-rhythm-index";
-    label.textContent = String(index + 1);
+  chain.className = "beat-rhythm-chain";
 
-    const options = document.createElement("div");
-    options.className = "beat-rhythm-options";
-    options.setAttribute("role", "group");
-    options.setAttribute("aria-label", `Rhythm choices for beat ${index + 1}`);
-
-    for (const option of BEAT_RHYTHM_OPTIONS) {
-      options.append(createBeatRhythmButton(option, beat, index));
-    }
-
-    row.append(label, options);
-    elements.beatRhythmEditor.append(row);
+  meter.beats.forEach((beat, index) => {
+    const slot = document.createElement("div");
+    slot.className = "beat-rhythm-slot";
+    slot.append(createBeatRhythmCurrentButton(beat, index));
+    chain.append(slot);
   });
+
+  elements.beatRhythmEditor.append(chain);
+
+  if (app.activeRhythmPickerIndex >= 0) {
+    const index = app.activeRhythmPickerIndex;
+    const beat = meter.beats[index];
+    const picker = document.createElement("div");
+    picker.id = `beat-rhythm-picker-${index}`;
+    picker.className = "beat-rhythm-picker";
+    picker.setAttribute("role", "group");
+    picker.setAttribute("aria-label", `Rhythm choices for beat ${index + 1}`);
+    for (const option of BEAT_RHYTHM_OPTIONS) {
+      picker.append(createBeatRhythmOptionButton(option, beat, index));
+    }
+    elements.beatRhythmEditor.append(picker);
+  }
 }
 
 function updateBeatRhythm(beatIndex, rhythm) {
@@ -378,12 +421,22 @@ function updateBeatRhythm(beatIndex, rhythm) {
     });
   }
 
+  app.activeRhythmPickerIndex = -1;
   refreshPlaybackSchedule();
   render();
   setStatus(`Beat ${beatIndex + 1}: ${getBeatRhythmLabel(rhythm)}`);
 }
 
 function handleBeatRhythmClick(event) {
+  const toggle = event.target.closest("[data-beat-rhythm-toggle]");
+  if (toggle) {
+    const index = Number(toggle.dataset.beatRhythmToggle);
+    app.activeRhythmPickerIndex =
+      app.activeRhythmPickerIndex === index ? -1 : index;
+    render();
+    return;
+  }
+
   const control = event.target.closest("[data-beat-rhythm]");
   if (!control) {
     return;

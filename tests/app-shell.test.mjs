@@ -126,6 +126,7 @@ test("app wires pattern chain and symbol rhythm controls", () => {
   assert.match(appJs, /function updateBeatRhythm\(/);
   assert.match(appJs, /function updatePatternSegment\(/);
   assert.match(appJs, /patternEnabled/);
+  assert.match(appJs, /beat-rhythm-current/);
   assert.match(appJs, /beat-rhythm-option/);
 });
 
@@ -157,6 +158,7 @@ test("per-beat rhythm editor exposes the complete embedded rhythm library", () =
 });
 
 test("per-beat rhythm editor draws SVG notation instead of font glyphs", () => {
+  assert.match(appJs, /dataset\.beatRhythmToggle/);
   assert.match(appJs, /data-beat-rhythm/);
   assert.match(appJs, /aria-pressed/);
   assert.match(appJs, /function createRhythmNotation\(/);
@@ -171,6 +173,22 @@ test("per-beat rhythm editor draws SVG notation instead of font glyphs", () => {
   assert.doesNotMatch(appJs, /createNoteChainSchedule/);
 });
 
+test("per-beat rhythm editor keeps the note library collapsed by default", () => {
+  assert.match(appJs, /activeRhythmPickerIndex:\s*-1/);
+  assert.match(appJs, /function createBeatRhythmCurrentButton\(/);
+  assert.match(appJs, /className = "beat-rhythm-chain"/);
+  assert.match(appJs, /className = "beat-rhythm-current"/);
+  assert.match(appJs, /className = "beat-rhythm-picker"/);
+  assert.match(appJs, /app\.activeRhythmPickerIndex === index/);
+  assert.match(appJs, /app\.activeRhythmPickerIndex = -1;/);
+  assert.match(styles, /\.beat-rhythm-chain/);
+  assert.match(styles, /\.beat-rhythm-current/);
+  assert.match(styles, /\.beat-rhythm-picker/);
+  assert.doesNotMatch(appJs, /className = "beat-rhythm-row"/);
+  assert.doesNotMatch(styles, /\.beat-rhythm-row/);
+  assert.doesNotMatch(styles, /\.beat-rhythm-options\s*\{[\s\S]*overflow-x:\s*auto/);
+});
+
 test("tap tempo remains visible in the main interface", () => {
   assert.match(html, /id=["']tapTempo["']/);
   assert.doesNotMatch(styles, /#tapTempo[\s\S]{0,80}display:\s*none;/);
@@ -182,7 +200,8 @@ test("hardware-inspired interface classes are present", () => {
   assert.match(styles, /--crt-green:/);
   assert.match(styles, /--control-orange:/);
   assert.match(styles, /\.beat-rhythm-editor/);
-  assert.match(styles, /\.beat-rhythm-row/);
+  assert.match(styles, /\.beat-rhythm-chain/);
+  assert.match(styles, /\.beat-rhythm-current/);
   assert.match(styles, /\.beat-rhythm-option/);
   assert.match(styles, /\.device-header/);
 });
