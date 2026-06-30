@@ -199,11 +199,20 @@ summary {
 
 #tempoReadout {
   display: block;
+  width: fit-content;
   color: var(--crt-green);
+  cursor: pointer;
   font-size: 5.25rem;
   font-weight: 900;
   line-height: 0.9;
   text-shadow: 0 0 18px rgba(121, 242, 93, 0.4);
+}
+
+#tempoReadout:hover,
+#tempoReadout:focus-visible {
+  outline: 1px solid var(--crt-green);
+  outline-offset: 6px;
+  text-shadow: 0 0 24px rgba(121, 242, 93, 0.55);
 }
 
 #meterReadout,

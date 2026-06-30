@@ -172,6 +172,8 @@ const app = {
   state: createDefaultState(),
   startedAt: 0,
   tapTimes: [],
+  voiceSampleBuffers: new Map(),
+  voiceSampleBuffersLoading: null,
   voiceSamples: new Map(),
   voiceSamplesLoading: null,
 };
@@ -611,12 +613,64 @@ function render() {
 
 function updateFromControls() {
   app.state = readStateFromControls();
-  if (app.state.soundStyle === "voice-count" && app.audioContext) {
-    loadVoiceCountSamples(app.audioContext);
+  if (app.state.soundStyle === "voice-count") {
+    preloadVoiceCountSampleBuffers();
+    if (app.audioContext) {
+      loadVoiceCountSamples(app.audioContext);
+    }
   }
   syncControlsFromState();
   refreshPlaybackSchedule();
   render();
+}
+
+function commitTempoInput() {
+  app.state = readStateFromControls();
+  syncControlsFromState();
+  refreshPlaybackSchedule();
+  render();
+  setStatus(`${app.state.tempo} ${app.state.tempoMode}`);
+}
+
+function handleTempoInput() {
+  const rawTempo = elements.tempoInput.value.trim();
+  const tempo = Number(rawTempo);
+  const minTempo = Number(elements.tempoInput.min);
+  const maxTempo = Number(elements.tempoInput.max);
+  if (!rawTempo || !Number.isFinite(tempo) || tempo < minTempo || tempo > maxTempo) {
+    return;
+  }
+
+  app.state = createDefaultState({ ...app.state, tempo });
+  refreshPlaybackSchedule();
+  render();
+  setStatus(`${app.state.tempo} ${app.state.tempoMode}`);
+}
+
+function handleTempoInputKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    commitTempoInput();
+    elements.tempoInput.select();
+  } else if (event.key === "Escape") {
+    syncControlsFromState();
+    elements.tempoInput.blur();
+  }
+}
+
+function focusTempoInput() {
+  elements.tempoInput.focus();
+  elements.tempoInput.select();
+  setStatus("Set tempo");
+}
+
+function handleTempoReadoutKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+
+  event.preventDefault();
+  focusTempoInput();
 }
 
 function changeTempo(delta) {
@@ -968,6 +1022,8 @@ async function loadVoiceCountSamples(context = getAudioContext()) {
     return app.voiceSamples;
   }
 
+  await preloadVoiceCountSampleBuffers();
+
   if (!app.voiceSamplesLoading) {
     app.voiceSamplesLoading = Promise.all(
       sampleEntries.map(async ([token, url]) => {
@@ -975,13 +1031,17 @@ async function loadVoiceCountSamples(context = getAudioContext()) {
           return;
         }
 
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Unable to load ${url}`);
+        let arrayBuffer = app.voiceSampleBuffers.get(token);
+        if (!arrayBuffer) {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Unable to load ${url}`);
+          }
+          arrayBuffer = await response.arrayBuffer();
+          app.voiceSampleBuffers.set(token, arrayBuffer);
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await context.decodeAudioData(arrayBuffer);
+        const audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0));
         app.voiceSamples.set(token, audioBuffer);
       })
     )
@@ -996,6 +1056,39 @@ async function loadVoiceCountSamples(context = getAudioContext()) {
 
   await app.voiceSamplesLoading;
   return app.voiceSamples;
+}
+
+function preloadVoiceCountSampleBuffers() {
+  const sampleEntries = Object.entries(VOICE_COUNT_SAMPLE_URLS);
+  if (app.voiceSampleBuffers.size === sampleEntries.length) {
+    return Promise.resolve(app.voiceSampleBuffers);
+  }
+
+  if (!app.voiceSampleBuffersLoading) {
+    app.voiceSampleBuffersLoading = Promise.all(
+      sampleEntries.map(async ([token, url]) => {
+        if (app.voiceSampleBuffers.has(token)) {
+          return;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Unable to load ${url}`);
+        }
+
+        app.voiceSampleBuffers.set(token, await response.arrayBuffer());
+      })
+    )
+      .catch((error) => {
+        console.warn(error);
+        app.voiceSampleBuffers.clear();
+      })
+      .finally(() => {
+        app.voiceSampleBuffersLoading = null;
+      });
+  }
+
+  return app.voiceSampleBuffersLoading;
 }
 
 function scheduleVoiceCount(event, level, context) {
@@ -1191,12 +1284,7 @@ async function startPlayback() {
   const resumePromise = context.resume();
 
   if (app.state.soundStyle === "voice-count") {
-    setStatus("Loading voice count");
-    render();
-    await loadVoiceCountSamples(context);
-    if (!app.playing) {
-      return;
-    }
+    loadVoiceCountSamples(context);
   }
 
   rebuildSchedule();
@@ -1276,7 +1364,15 @@ function wireControls() {
   elements.playToggle.addEventListener("click", togglePlayback);
   elements.tempoDown.addEventListener("click", () => changeTempo(-1));
   elements.tempoUp.addEventListener("click", () => changeTempo(1));
-  elements.tempoInput.addEventListener("input", updateFromControls);
+  elements.tempoInput.addEventListener("input", handleTempoInput);
+  elements.tempoInput.addEventListener("keydown", handleTempoInputKeydown);
+  elements.tempoInput.addEventListener("change", commitTempoInput);
+  elements.tempoInput.addEventListener("blur", commitTempoInput);
+  elements.tempoReadout.tabIndex = 0;
+  elements.tempoReadout.setAttribute("role", "button");
+  elements.tempoReadout.setAttribute("aria-label", "Edit tempo");
+  elements.tempoReadout.addEventListener("click", focusTempoInput);
+  elements.tempoReadout.addEventListener("keydown", handleTempoReadoutKeydown);
   elements.tapTempo.addEventListener("click", handleTapTempo);
   elements.muteToggle.addEventListener("click", toggleMute);
 
@@ -1307,3 +1403,4 @@ wireControls();
 syncControlsFromState();
 renderPatternSegments();
 render();
+preloadVoiceCountSampleBuffers();

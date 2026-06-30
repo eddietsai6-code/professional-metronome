@@ -194,6 +194,30 @@ test("tap tempo remains visible in the main interface", () => {
   assert.doesNotMatch(styles, /#tapTempo[\s\S]{0,80}display:\s*none;/);
 });
 
+test("tempo display and numeric field support direct tempo entry", () => {
+  assert.match(
+    html,
+    /id=["']tempoInput["'][^>]*type=["']number["'][^>]*min=["']30["'][^>]*max=["']280["'][^>]*step=["']1["']/
+  );
+  assert.match(appJs, /function focusTempoInput\(\) \{/);
+  assert.match(appJs, /function handleTempoInput\(\) \{/);
+  assert.match(appJs, /function handleTempoInputKeydown\(event\) \{/);
+  assert.match(appJs, /function handleTempoReadoutKeydown\(event\) \{/);
+  assert.match(appJs, /function commitTempoInput\(\) \{/);
+  assert.match(appJs, /elements\.tempoReadout\.tabIndex = 0/);
+  assert.match(appJs, /elements\.tempoReadout\.setAttribute\("role", "button"\)/);
+  assert.match(appJs, /elements\.tempoReadout\.addEventListener\("click", focusTempoInput\)/);
+  assert.match(appJs, /elements\.tempoReadout\.addEventListener\("keydown", handleTempoReadoutKeydown\)/);
+  assert.match(appJs, /elements\.tempoInput\.focus\(\)/);
+  assert.match(appJs, /elements\.tempoInput\.select\(\)/);
+  assert.match(appJs, /elements\.tempoInput\.addEventListener\("input", handleTempoInput\)/);
+  assert.match(appJs, /elements\.tempoInput\.addEventListener\("keydown", handleTempoInputKeydown\)/);
+  assert.match(appJs, /elements\.tempoInput\.addEventListener\("change", commitTempoInput\)/);
+  assert.match(appJs, /elements\.tempoInput\.addEventListener\("blur", commitTempoInput\)/);
+  assert.doesNotMatch(appJs, /elements\.tempoInput\.addEventListener\("input", updateFromControls\)/);
+  assert.match(styles, /#tempoReadout[\s\S]*cursor:\s*pointer/);
+});
+
 test("hardware-inspired interface classes are present", () => {
   assert.match(html, /class=["'][^"']*\bdevice-header\b/);
   assert.match(html, /class=["'][^"']*\brhythm-shell\b/);
@@ -231,6 +255,8 @@ test("app retains and cancels scheduled audio nodes", () => {
 test("voice count sound schedules count syllables from audio samples", () => {
   assert.match(appJs, /function scheduleVoiceCount\(/);
   assert.match(appJs, /const VOICE_COUNT_SAMPLE_URLS = \{/);
+  assert.match(appJs, /voiceSampleBuffers:\s*new Map\(\)/);
+  assert.match(appJs, /function preloadVoiceCountSampleBuffers\(\) \{/);
   assert.match(appJs, /function loadVoiceCountSamples\(/);
   assert.match(appJs, /fetch\(url\)/);
   assert.match(appJs, /decodeAudioData/);
@@ -239,6 +265,20 @@ test("voice count sound schedules count syllables from audio samples", () => {
   assert.match(appJs, /soundStyle === "voice-count"/);
   assert.doesNotMatch(appJs, /SpeechSynthesisUtterance/);
   assert.doesNotMatch(appJs, /speechSynthesis/);
+});
+
+test("voice count playback starts scheduling without blocking on sample decode", () => {
+  const startIndex = appJs.indexOf("async function startPlayback()");
+  const stopIndex = appJs.indexOf("function stopPlayback()");
+  assert.notEqual(startIndex, -1, "missing startPlayback");
+  assert.notEqual(stopIndex, -1, "missing stopPlayback");
+  const startBlock = appJs.slice(startIndex, stopIndex);
+
+  assert.match(startBlock, /loadVoiceCountSamples\(context\);/);
+  assert.match(startBlock, /rebuildSchedule\(\);\s*schedulerTick\(\);/);
+  assert.doesNotMatch(startBlock, /await loadVoiceCountSamples\(context\)/);
+  assert.doesNotMatch(startBlock, /Loading voice count/);
+  assert.match(appJs, /preloadVoiceCountSampleBuffers\(\);/);
 });
 
 test("voice count audio package includes required syllable samples", () => {
