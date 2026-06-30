@@ -17,10 +17,30 @@ const TAP_SAMPLE_LIMIT = 6;
 const LOOKAHEAD_SECONDS = 0.1;
 const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
-const VOICE_SPEECH_TEXT = {
-  "&": "and",
-  e: "ee",
-  a: "uh",
+const OUTPUT_GAIN = 1.8;
+const VOICE_SAMPLE_GAIN = 1.6;
+const VOICE_COUNT_SAMPLE_URLS = {
+  "1": "assets/voice-count/one.wav",
+  "2": "assets/voice-count/two.wav",
+  "3": "assets/voice-count/three.wav",
+  "4": "assets/voice-count/four.wav",
+  "5": "assets/voice-count/five.wav",
+  "6": "assets/voice-count/six.wav",
+  "7": "assets/voice-count/seven.wav",
+  "8": "assets/voice-count/eight.wav",
+  "9": "assets/voice-count/nine.wav",
+  "10": "assets/voice-count/ten.wav",
+  "11": "assets/voice-count/eleven.wav",
+  "12": "assets/voice-count/twelve.wav",
+  "13": "assets/voice-count/thirteen.wav",
+  "14": "assets/voice-count/fourteen.wav",
+  "15": "assets/voice-count/fifteen.wav",
+  "16": "assets/voice-count/sixteen.wav",
+  "&": "assets/voice-count/and.wav",
+  e: "assets/voice-count/e.wav",
+  a: "assets/voice-count/a.wav",
+  trip: "assets/voice-count/trip.wav",
+  let: "assets/voice-count/let.wav",
 };
 
 const BEAT_RHYTHM_OPTIONS = [
@@ -151,6 +171,8 @@ const app = {
   state: createDefaultState(),
   startedAt: 0,
   tapTimes: [],
+  voiceSamples: new Map(),
+  voiceSamplesLoading: null,
 };
 
 function setStatus(message) {
@@ -536,6 +558,9 @@ function render() {
 
 function updateFromControls() {
   app.state = readStateFromControls();
+  if (app.state.soundStyle === "voice-count" && app.audioContext) {
+    loadVoiceCountSamples(app.audioContext);
+  }
   syncControlsFromState();
   refreshPlaybackSchedule();
   render();
@@ -848,21 +873,22 @@ function getClickProfile(level, soundStyle) {
   return profiles[soundStyle]?.[level] || profiles.digital.normal;
 }
 
-function getVoiceSpeechText(token) {
-  return VOICE_SPEECH_TEXT[token] ?? token;
-}
-
 function scheduleToneClick(event, level, context) {
   if (!app.masterGain) {
     return;
   }
 
-  const [frequency, gainValue] = getClickProfile(level, app.state.soundStyle);
-  const clickGain = Math.max(0.0001, gainValue * app.state.volume);
+  const soundStyle =
+    app.state.soundStyle === "voice-count" ? "digital" : app.state.soundStyle;
+  const [frequency, gainValue] = getClickProfile(level, soundStyle);
+  const clickGain = Math.max(
+    0.0001,
+    Math.min(0.95, gainValue * app.state.volume * OUTPUT_GAIN)
+  );
   const oscillator = context.createOscillator();
   const gain = context.createGain();
   oscillator.frequency.setValueAtTime(frequency, event.time);
-  oscillator.type = app.state.soundStyle === "beep" ? "sine" : "square";
+  oscillator.type = soundStyle === "beep" ? "sine" : "square";
   gain.gain.setValueAtTime(0.0001, event.time);
   gain.gain.exponentialRampToValueAtTime(clickGain, event.time + 0.004);
   gain.gain.exponentialRampToValueAtTime(0.0001, event.time + 0.055);
@@ -879,35 +905,86 @@ function scheduleToneClick(event, level, context) {
   oscillator.stop(event.time + 0.06);
 }
 
+async function loadVoiceCountSamples(context = getAudioContext()) {
+  if (!context) {
+    return app.voiceSamples;
+  }
+
+  const sampleEntries = Object.entries(VOICE_COUNT_SAMPLE_URLS);
+  if (app.voiceSamples.size === sampleEntries.length) {
+    return app.voiceSamples;
+  }
+
+  if (!app.voiceSamplesLoading) {
+    app.voiceSamplesLoading = Promise.all(
+      sampleEntries.map(async ([token, url]) => {
+        if (app.voiceSamples.has(token)) {
+          return;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Unable to load ${url}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await context.decodeAudioData(arrayBuffer);
+        app.voiceSamples.set(token, audioBuffer);
+      })
+    )
+      .catch((error) => {
+        console.warn(error);
+        app.voiceSamples.clear();
+      })
+      .finally(() => {
+        app.voiceSamplesLoading = null;
+      });
+  }
+
+  await app.voiceSamplesLoading;
+  return app.voiceSamples;
+}
+
 function scheduleVoiceCount(event, level, context) {
   const token = getVoiceCountToken(event);
   if (!token) {
     return;
   }
 
-  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") {
+  const sample = app.voiceSamples.get(token);
+  if (!sample) {
+    loadVoiceCountSamples(context);
     scheduleToneClick(event, level, context);
     return;
   }
 
-  const scheduledNode = { kind: "voice", timeoutId: null, utterance: null };
-  const delayMs = Math.max(0, Math.round((event.time - context.currentTime) * 1000));
-  scheduledNode.timeoutId = window.setTimeout(() => {
-    const utterance = new SpeechSynthesisUtterance(getVoiceSpeechText(token));
-    scheduledNode.timeoutId = null;
-    scheduledNode.utterance = utterance;
-    utterance.lang = "en-US";
-    utterance.rate = 1.75;
-    utterance.pitch = event.subdivisionIndex === 0 ? 1.05 : 0.96;
-    utterance.volume = Math.max(0, Math.min(1, app.state.volume));
-    utterance.onend = () => {
-      app.scheduledNodes.delete(scheduledNode);
-    };
-    utterance.onerror = utterance.onend;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-  }, delayMs);
+  const source = context.createBufferSource();
+  const gain = context.createGain();
+  const sampleGain = Math.max(
+    0.0001,
+    Math.min(2.4, app.state.volume * VOICE_SAMPLE_GAIN)
+  );
+  const stopTime = event.time + Math.min(sample.duration, 0.46);
+  const fadeInEnd = event.time + 0.008;
+  const fadeOutStart = Math.max(fadeInEnd, stopTime - 0.03);
+
+  source.buffer = sample;
+  gain.gain.setValueAtTime(0.0001, event.time);
+  gain.gain.linearRampToValueAtTime(sampleGain, fadeInEnd);
+  gain.gain.setValueAtTime(sampleGain, fadeOutStart);
+  gain.gain.linearRampToValueAtTime(0.0001, stopTime);
+  source.connect(gain);
+  gain.connect(app.masterGain);
+
+  const scheduledNode = { source, gain };
   app.scheduledNodes.add(scheduledNode);
+  source.onended = () => {
+    source.disconnect();
+    gain.disconnect();
+    app.scheduledNodes.delete(scheduledNode);
+  };
+  source.start(event.time);
+  source.stop(stopTime);
 }
 
 function scheduleClick(event) {
@@ -931,12 +1008,16 @@ function scheduleClick(event) {
 
 function cancelScheduledNodes() {
   for (const node of app.scheduledNodes) {
-    if (node.timeoutId != null) {
-      clearTimeout(node.timeoutId);
-    }
-    if (node.utterance) {
-      node.utterance.onend = null;
-      node.utterance.onerror = null;
+    if (node.source && node.gain) {
+      node.source.onended = null;
+      try {
+        node.source.stop();
+      } catch {
+        // Already stopped or not stoppable; disconnect below still releases nodes.
+      }
+      node.source.disconnect();
+      node.gain.disconnect();
+      continue;
     }
     if (!node.oscillator || !node.gain) {
       continue;
@@ -951,9 +1032,6 @@ function cancelScheduledNodes() {
     }
     oscillator.disconnect();
     gain.disconnect();
-  }
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
   }
   app.scheduledNodes.clear();
 }
@@ -1049,7 +1127,7 @@ function visualTick() {
   app.rafId = window.requestAnimationFrame(visualTick);
 }
 
-function startPlayback() {
+async function startPlayback() {
   const context = getAudioContext();
   if (!context) {
     return;
@@ -1057,6 +1135,17 @@ function startPlayback() {
 
   app.state = readStateFromControls();
   app.playing = true;
+  const resumePromise = context.resume();
+
+  if (app.state.soundStyle === "voice-count") {
+    setStatus("Loading voice count");
+    render();
+    await loadVoiceCountSamples(context);
+    if (!app.playing) {
+      return;
+    }
+  }
+
   rebuildSchedule();
   schedulerTick();
   visualTick();
@@ -1065,7 +1154,7 @@ function startPlayback() {
   );
   render();
 
-  context.resume().catch(() => {
+  resumePromise.catch(() => {
     if (app.playing) {
       stopPlayback();
       setStatus("Audio playback could not start");

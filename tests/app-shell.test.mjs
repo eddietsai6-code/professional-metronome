@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const appJs = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
@@ -209,14 +209,57 @@ test("app retains and cancels scheduled audio nodes", () => {
   assert.match(appJs, /cancelScheduledNodes\(\);\s*setStatus\("Stopped"\)/);
 });
 
-test("voice count sound schedules spoken count syllables", () => {
+test("voice count sound schedules count syllables from audio samples", () => {
   assert.match(appJs, /function scheduleVoiceCount\(/);
-  assert.match(appJs, /function getVoiceSpeechText\(/);
-  assert.match(appJs, /new SpeechSynthesisUtterance/);
-  assert.match(appJs, /speechSynthesis\.speak\(utterance\)/);
+  assert.match(appJs, /const VOICE_COUNT_SAMPLE_URLS = \{/);
+  assert.match(appJs, /function loadVoiceCountSamples\(/);
+  assert.match(appJs, /fetch\(url\)/);
+  assert.match(appJs, /decodeAudioData/);
+  assert.match(appJs, /createBufferSource\(\)/);
   assert.match(appJs, /getVoiceCountToken\(event\)/);
   assert.match(appJs, /soundStyle === "voice-count"/);
-  assert.match(appJs, /clearTimeout\(node\.timeoutId\)/);
+  assert.doesNotMatch(appJs, /SpeechSynthesisUtterance/);
+  assert.doesNotMatch(appJs, /speechSynthesis/);
+});
+
+test("voice count audio package includes required syllable samples", () => {
+  const voiceDir = new URL("../assets/voice-count/", import.meta.url);
+  const files = readdirSync(voiceDir).sort();
+
+  assert.deepEqual(files, [
+    "a.wav",
+    "and.wav",
+    "e.wav",
+    "eight.wav",
+    "eleven.wav",
+    "fifteen.wav",
+    "five.wav",
+    "four.wav",
+    "fourteen.wav",
+    "let.wav",
+    "nine.wav",
+    "one.wav",
+    "seven.wav",
+    "six.wav",
+    "sixteen.wav",
+    "ten.wav",
+    "thirteen.wav",
+    "three.wav",
+    "trip.wav",
+    "twelve.wav",
+    "two.wav",
+  ]);
+
+  for (const file of files) {
+    assert.ok(statSync(new URL(file, voiceDir)).size > 1000, `${file} is empty`);
+  }
+});
+
+test("app applies higher output gain for audible styles", () => {
+  assert.match(appJs, /const OUTPUT_GAIN = 1\.8;/);
+  assert.match(appJs, /const VOICE_SAMPLE_GAIN = 1\.6;/);
+  assert.match(appJs, /gainValue \* app\.state\.volume \* OUTPUT_GAIN/);
+  assert.match(appJs, /app\.state\.volume \* VOICE_SAMPLE_GAIN/);
 });
 
 test("playing edits refresh the active playback schedule", () => {
