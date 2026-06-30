@@ -9,6 +9,7 @@ import {
   createSchedule,
   getAudibleEventLevel,
   getScheduleEndTime,
+  getVoiceCountToken,
   normalizeMeter,
 } from "./metronome-core.js";
 
@@ -16,6 +17,11 @@ const TAP_SAMPLE_LIMIT = 6;
 const LOOKAHEAD_SECONDS = 0.1;
 const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
+const VOICE_SPEECH_TEXT = {
+  "&": "and",
+  e: "ee",
+  a: "uh",
+};
 
 const BEAT_RHYTHM_OPTIONS = [
   { value: "quarter", label: "Quarter note" },
@@ -842,14 +848,12 @@ function getClickProfile(level, soundStyle) {
   return profiles[soundStyle]?.[level] || profiles.digital.normal;
 }
 
-function scheduleClick(event) {
-  const context = getAudioContext();
-  if (!context || !app.masterGain) {
-    return;
-  }
+function getVoiceSpeechText(token) {
+  return VOICE_SPEECH_TEXT[token] ?? token;
+}
 
-  const level = getAudibleEventLevel(event, app.state.muted);
-  if (level === "silent") {
+function scheduleToneClick(event, level, context) {
+  if (!app.masterGain) {
     return;
   }
 
@@ -875,8 +879,70 @@ function scheduleClick(event) {
   oscillator.stop(event.time + 0.06);
 }
 
+function scheduleVoiceCount(event, level, context) {
+  const token = getVoiceCountToken(event);
+  if (!token) {
+    return;
+  }
+
+  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") {
+    scheduleToneClick(event, level, context);
+    return;
+  }
+
+  const scheduledNode = { kind: "voice", timeoutId: null, utterance: null };
+  const delayMs = Math.max(0, Math.round((event.time - context.currentTime) * 1000));
+  scheduledNode.timeoutId = window.setTimeout(() => {
+    const utterance = new SpeechSynthesisUtterance(getVoiceSpeechText(token));
+    scheduledNode.timeoutId = null;
+    scheduledNode.utterance = utterance;
+    utterance.lang = "en-US";
+    utterance.rate = 1.75;
+    utterance.pitch = event.subdivisionIndex === 0 ? 1.05 : 0.96;
+    utterance.volume = Math.max(0, Math.min(1, app.state.volume));
+    utterance.onend = () => {
+      app.scheduledNodes.delete(scheduledNode);
+    };
+    utterance.onerror = utterance.onend;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }, delayMs);
+  app.scheduledNodes.add(scheduledNode);
+}
+
+function scheduleClick(event) {
+  const context = getAudioContext();
+  if (!context || !app.masterGain) {
+    return;
+  }
+
+  const level = getAudibleEventLevel(event, app.state.muted);
+  if (level === "silent") {
+    return;
+  }
+
+  if (app.state.soundStyle === "voice-count") {
+    scheduleVoiceCount(event, level, context);
+    return;
+  }
+
+  scheduleToneClick(event, level, context);
+}
+
 function cancelScheduledNodes() {
-  for (const { oscillator, gain } of app.scheduledNodes) {
+  for (const node of app.scheduledNodes) {
+    if (node.timeoutId != null) {
+      clearTimeout(node.timeoutId);
+    }
+    if (node.utterance) {
+      node.utterance.onend = null;
+      node.utterance.onerror = null;
+    }
+    if (!node.oscillator || !node.gain) {
+      continue;
+    }
+
+    const { oscillator, gain } = node;
     oscillator.onended = null;
     try {
       oscillator.stop();
@@ -885,6 +951,9 @@ function cancelScheduledNodes() {
     }
     oscillator.disconnect();
     gain.disconnect();
+  }
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
   }
   app.scheduledNodes.clear();
 }

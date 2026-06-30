@@ -95,6 +95,18 @@ test("subdivision options expose expanded rhythm choices", () => {
   ]);
 });
 
+test("sound options include a voice count style", () => {
+  const selectMatch = html.match(/<select\b[^>]*id=["']soundStyle["'][^>]*>([\s\S]*?)<\/select>/);
+  assert.ok(selectMatch, "missing #soundStyle select");
+
+  const values = [...selectMatch[1].matchAll(/<option\b[^>]*value=["']([^"']+)["'][^>]*>/g)].map(
+    ([, value]) => value
+  );
+
+  assert.deepEqual(values, ["digital", "wood", "stick", "beep", "voice-count"]);
+  assert.match(selectMatch[1], /Voice Count/);
+});
+
 test("advanced practice, polyrhythm, timer, and preset UI are removed from the shell", () => {
   assert.doesNotMatch(html, /Polyrhythm|Practice|Presets|Timer minutes|Saved presets/);
   assert.doesNotMatch(html, /id=["']timerToggle["']/);
@@ -102,7 +114,7 @@ test("advanced practice, polyrhythm, timer, and preset UI are removed from the s
 });
 
 test("app imports core scheduler helpers for browser playback", () => {
-  assert.match(appJs, /\bcreateSchedule,\s*\n\s*getAudibleEventLevel,\s*\n\s*getScheduleEndTime,/);
+  assert.match(appJs, /\bcreateSchedule,\s*\n\s*getAudibleEventLevel,\s*\n\s*getScheduleEndTime,\s*\n\s*getVoiceCountToken,/);
   assert.match(appJs, /\bgetScheduleEndTime,/);
   assert.match(appJs, /createSchedule\(\{\s*state: createDefaultState\(\{/);
   assert.match(appJs, /getAudibleEventLevel\(event, app\.state\.muted\)/);
@@ -195,6 +207,16 @@ test("app retains and cancels scheduled audio nodes", () => {
   assert.match(appJs, /app\.scheduledNodes\.delete\(scheduledNode\)/);
   assert.match(appJs, /oscillator\.onended\s*=\s*\(\)\s*=>\s*\{/);
   assert.match(appJs, /cancelScheduledNodes\(\);\s*setStatus\("Stopped"\)/);
+});
+
+test("voice count sound schedules spoken count syllables", () => {
+  assert.match(appJs, /function scheduleVoiceCount\(/);
+  assert.match(appJs, /function getVoiceSpeechText\(/);
+  assert.match(appJs, /new SpeechSynthesisUtterance/);
+  assert.match(appJs, /speechSynthesis\.speak\(utterance\)/);
+  assert.match(appJs, /getVoiceCountToken\(event\)/);
+  assert.match(appJs, /soundStyle === "voice-count"/);
+  assert.match(appJs, /clearTimeout\(node\.timeoutId\)/);
 });
 
 test("playing edits refresh the active playback schedule", () => {

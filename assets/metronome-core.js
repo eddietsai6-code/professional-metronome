@@ -252,6 +252,38 @@ const BEAT_RHYTHM_PATTERNS = {
   },
 };
 
+const BEAT_RHYTHM_COUNT_TOKENS = {
+  quarter: ["beat"],
+  eighth: ["beat", "&"],
+  "eighth-rest-note": [null, "&"],
+  triplet: ["beat", "trip", "let"],
+  "triplet-rest-note-note": [null, "trip", "let"],
+  "triplet-note-rest-note": ["beat", null, "let"],
+  "triplet-note-note-rest": ["beat", "trip", null],
+  sixteenth: ["beat", "e", "&", "a"],
+  "sixteenth-rest-note-rest-note": [null, "e", null, "a"],
+  "sixteenth-pair-eighth": ["beat", "e", "&"],
+  "eighth-sixteenth-pair": ["beat", "&", "a"],
+  "dotted-eighth-sixteenth": ["beat", "a"],
+  "sixteenth-dotted-eighth": ["beat", "e"],
+  "sixteenth-eighth-sixteenth": ["beat", "e", "a"],
+  rest: [null],
+};
+
+const SUBDIVISION_COUNT_TOKENS = {
+  none: ["beat"],
+  eighth: ["beat", "&"],
+  triplet: ["beat", "trip", "let"],
+  sixteenth: ["beat", "e", "&", "a"],
+  quintuplet: ["beat", "ta", "ka", "di", "mi"],
+  sextuplet: ["beat", "trip", "let", "&", "trip", "let"],
+  septuplet: ["beat", "ta", "ka", "di", "mi", "ta", "ka"],
+  thirtysecond: ["beat", "e", "&", "a", "&", "e", "&", "a"],
+  dotted: ["beat", "a"],
+  shuffle: ["beat", "let"],
+  "swung-sixteenth": ["beat", "e", "&", "a"],
+};
+
 function getBeatRhythmPattern(rhythm, fallbackSubdivision) {
   const normalizedRhythm = normalizeBeatRhythm(rhythm);
   if (normalizedRhythm === "inherit") {
@@ -268,6 +300,28 @@ function getBeatRhythmPattern(rhythm, fallbackSubdivision) {
     offsets: [...pattern.offsets],
     audible: [...pattern.audible],
   };
+}
+
+export function getVoiceCountToken(event = {}) {
+  const safeEvent = event ?? {};
+  if (safeEvent.audible === false || safeEvent.kind === "polyrhythm") {
+    return null;
+  }
+
+  const subdivisionIndex = Number.isInteger(safeEvent.subdivisionIndex)
+    ? safeEvent.subdivisionIndex
+    : 0;
+  const beatNumber = Number.isInteger(safeEvent.beatIndex)
+    ? safeEvent.beatIndex + 1
+    : 1;
+  const beatRhythm = normalizeBeatRhythm(safeEvent.beatRhythm);
+  const tokens =
+    beatRhythm === "inherit"
+      ? SUBDIVISION_COUNT_TOKENS[normalizeSubdivision(safeEvent.subdivision)]
+      : BEAT_RHYTHM_COUNT_TOKENS[beatRhythm];
+  const token = tokens?.[subdivisionIndex] ?? null;
+
+  return token === "beat" ? String(beatNumber) : token;
 }
 
 export function clampInteger(value, min, max) {
@@ -425,6 +479,7 @@ export function createSchedule({
           level: isMain && silentByPattern ? "rest" : isMain ? beat.level : "subdivision",
           audible,
           beatRhythm,
+          subdivision: barConfig.subdivision,
           isCountIn,
           mutedByTrainer,
           visual: !(mutedByTrainer && safeState.trainer.hideMutedVisuals),

@@ -16,6 +16,7 @@ import {
   getBeatDurationSeconds,
   getScheduleEndTime,
   getSubdivisionOffsets,
+  getVoiceCountToken,
   getVisualBeatState,
   isTrainerMutedBar,
   normalizeMeter,
@@ -383,6 +384,53 @@ test("createSchedule supports reference rhythm rests and sixteenth combinations"
       { time: 1.875, beatIndex: 3, subdivisionIndex: 2, audible: true },
     ]
   );
+});
+
+test("getVoiceCountToken follows English count syllables for reference rhythms", () => {
+  const state = createDefaultState({
+    meter: {
+      beatsPerBar: 4,
+      beatUnit: 4,
+      beats: [
+        { index: 0, level: "accent", rhythm: "sixteenth" },
+        { index: 1, level: "normal", rhythm: "eighth-rest-note" },
+        { index: 2, level: "normal", rhythm: "triplet-note-rest-note" },
+        { index: 3, level: "normal", rhythm: "dotted-eighth-sixteenth" },
+      ],
+    },
+    subdivision: "none",
+  });
+
+  const events = createSchedule({ state, bars: 1, startTime: 0 });
+
+  assert.deepEqual(events.map(getVoiceCountToken), [
+    "1",
+    "e",
+    "&",
+    "a",
+    null,
+    "&",
+    "3",
+    null,
+    "let",
+    "4",
+    "a",
+  ]);
+});
+
+test("getVoiceCountToken counts inherited global subdivisions", () => {
+  const state = createDefaultState({
+    meter: {
+      beatsPerBar: 1,
+      beatUnit: 4,
+      beats: [{ index: 0, level: "accent", rhythm: "inherit" }],
+    },
+    subdivision: "triplet",
+  });
+
+  const events = createSchedule({ state, bars: 1, startTime: 0 });
+
+  assert.deepEqual(events.map(getVoiceCountToken), ["1", "trip", "let"]);
 });
 
 test("createSchedule cycles pattern chain segments with independent meters", () => {
