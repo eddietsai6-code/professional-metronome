@@ -17,6 +17,7 @@ const TAP_SAMPLE_LIMIT = 6;
 const LOOKAHEAD_SECONDS = 0.1;
 const SCHEDULER_INTERVAL_MS = 25;
 const SCHEDULE_BARS = 64;
+const START_DELAY_SECONDS = 0.02;
 const OUTPUT_GAIN = 1.8;
 const VOICE_SAMPLE_GAIN = 1.6;
 const VOICE_COUNT_SAMPLE_URLS = {
@@ -1246,7 +1247,7 @@ function rebuildSchedule({ includeCountIn = true } = {}) {
     return;
   }
 
-  app.startedAt = context.currentTime + 0.08;
+  app.startedAt = context.currentTime + START_DELAY_SECONDS;
   app.schedule = createSchedule({
     state: createDefaultState({
       ...app.state,
@@ -1335,7 +1336,19 @@ async function startPlayback() {
 
   app.state = readStateFromControls();
   app.playing = true;
-  const resumePromise = context.resume();
+
+  try {
+    await context.resume();
+  } catch {
+    app.playing = false;
+    setStatus("Audio playback could not start");
+    render();
+    return;
+  }
+
+  if (!app.playing) {
+    return;
+  }
 
   if (app.state.soundStyle === "voice-count") {
     setStatus("Starting voice count");
@@ -1353,13 +1366,6 @@ async function startPlayback() {
     app.state.countInBars ? `Count-in ${app.state.countInBars} bar(s)` : "Playing"
   );
   render();
-
-  resumePromise.catch(() => {
-    if (app.playing) {
-      stopPlayback();
-      setStatus("Audio playback could not start");
-    }
-  });
 }
 
 function stopPlayback() {

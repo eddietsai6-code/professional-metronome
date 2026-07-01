@@ -242,6 +242,24 @@ test("app schedules lookahead work with setTimeout", () => {
   assert.match(appJs, /setTimeout\s*\(/);
 });
 
+test("playback starts audible scheduling immediately after audio context resumes", () => {
+  const startIndex = appJs.indexOf("async function startPlayback()");
+  const stopIndex = appJs.indexOf("function stopPlayback()");
+  assert.notEqual(startIndex, -1, "missing startPlayback");
+  assert.notEqual(stopIndex, -1, "missing stopPlayback");
+  const startBlock = appJs.slice(startIndex, stopIndex);
+  const resumeIndex = startBlock.indexOf("await context.resume();");
+  const scheduleIndex = startBlock.indexOf("rebuildSchedule();");
+
+  assert.match(appJs, /const START_DELAY_SECONDS = 0\.02;/);
+  assert.match(appJs, /app\.startedAt = context\.currentTime \+ START_DELAY_SECONDS;/);
+  assert.ok(resumeIndex > -1, "startPlayback should await AudioContext resume");
+  assert.ok(scheduleIndex > resumeIndex, "playback should schedule after context resumes");
+  assert.doesNotMatch(startBlock, /const resumePromise = context\.resume\(\)/);
+  assert.doesNotMatch(appJs, /context\.currentTime \+ 0\.08/);
+  assert.match(startBlock, /Audio playback could not start/);
+});
+
 test("app retains and cancels scheduled audio nodes", () => {
   assert.match(appJs, /scheduledNodes:\s*new Set\(\)/);
   assert.match(appJs, /function cancelScheduledNodes\(\) \{/);
