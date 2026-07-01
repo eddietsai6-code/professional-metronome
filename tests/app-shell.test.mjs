@@ -256,7 +256,11 @@ test("voice count sound schedules count syllables from audio samples", () => {
   assert.match(appJs, /function scheduleVoiceCount\(/);
   assert.match(appJs, /const VOICE_COUNT_SAMPLE_URLS = \{/);
   assert.match(appJs, /voiceSampleBuffers:\s*new Map\(\)/);
+  assert.match(appJs, /voiceSampleBufferPromises:\s*new Map\(\)/);
+  assert.match(appJs, /voiceSamplePromises:\s*new Map\(\)/);
+  assert.match(appJs, /function preloadVoiceCountSampleBuffer\(token, url = VOICE_COUNT_SAMPLE_URLS\[token\]\) \{/);
   assert.match(appJs, /function preloadVoiceCountSampleBuffers\(\) \{/);
+  assert.match(appJs, /function loadVoiceCountSample\(context, token\) \{/);
   assert.match(appJs, /function loadVoiceCountSamples\(/);
   assert.match(appJs, /fetch\(url\)/);
   assert.match(appJs, /decodeAudioData/);
@@ -267,18 +271,37 @@ test("voice count sound schedules count syllables from audio samples", () => {
   assert.doesNotMatch(appJs, /speechSynthesis/);
 });
 
-test("voice count playback starts scheduling without blocking on sample decode", () => {
+test("voice count playback primes startup samples before scheduling", () => {
   const startIndex = appJs.indexOf("async function startPlayback()");
   const stopIndex = appJs.indexOf("function stopPlayback()");
   assert.notEqual(startIndex, -1, "missing startPlayback");
   assert.notEqual(stopIndex, -1, "missing stopPlayback");
   const startBlock = appJs.slice(startIndex, stopIndex);
+  const startupIndex = startBlock.indexOf("await loadVoiceCountStartupSamples(context);");
+  const scheduleIndex = startBlock.indexOf("rebuildSchedule();");
 
-  assert.match(startBlock, /loadVoiceCountSamples\(context\);/);
+  assert.match(appJs, /function getStartupVoiceCountTokens\(\) \{/);
+  assert.match(appJs, /function loadVoiceCountStartupSamples\(context\) \{/);
+  assert.ok(startupIndex > -1, "startPlayback should wait for startup voice samples");
+  assert.ok(scheduleIndex > startupIndex, "startup voice samples should load before scheduling");
   assert.match(startBlock, /rebuildSchedule\(\);\s*schedulerTick\(\);/);
   assert.doesNotMatch(startBlock, /await loadVoiceCountSamples\(context\)/);
   assert.doesNotMatch(startBlock, /Loading voice count/);
   assert.match(appJs, /preloadVoiceCountSampleBuffers\(\);/);
+});
+
+test("voice count loads missing syllables per token instead of waiting for the whole package", () => {
+  const loadAllIndex = appJs.indexOf("async function loadVoiceCountSamples");
+  const scheduleIndex = appJs.indexOf("function scheduleVoiceCount");
+  assert.notEqual(loadAllIndex, -1, "missing loadVoiceCountSamples");
+  assert.notEqual(scheduleIndex, -1, "missing scheduleVoiceCount");
+  const loadAllBlock = appJs.slice(loadAllIndex, scheduleIndex);
+  const scheduleBlock = appJs.slice(scheduleIndex, appJs.indexOf("function scheduleClick"));
+
+  assert.doesNotMatch(loadAllBlock, /await preloadVoiceCountSampleBuffers\(\)/);
+  assert.match(loadAllBlock, /loadVoiceCountSample\(context, token\)/);
+  assert.match(scheduleBlock, /loadVoiceCountSample\(context, token\);/);
+  assert.doesNotMatch(scheduleBlock, /loadVoiceCountSamples\(context\)/);
 });
 
 test("voice count audio package includes required syllable samples", () => {

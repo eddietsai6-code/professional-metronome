@@ -173,9 +173,9 @@ const app = {
   startedAt: 0,
   tapTimes: [],
   voiceSampleBuffers: new Map(),
-  voiceSampleBuffersLoading: null,
+  voiceSampleBufferPromises: new Map(),
   voiceSamples: new Map(),
-  voiceSamplesLoading: null,
+  voiceSamplePromises: new Map(),
 };
 
 function setStatus(message) {
@@ -615,8 +615,9 @@ function updateFromControls() {
   app.state = readStateFromControls();
   if (app.state.soundStyle === "voice-count") {
     preloadVoiceCountSampleBuffers();
-    if (app.audioContext) {
-      loadVoiceCountSamples(app.audioContext);
+    const context = app.audioContext ?? getAudioContext();
+    if (context) {
+      loadVoiceCountSamples(context);
     }
   }
   syncControlsFromState();
@@ -1012,50 +1013,37 @@ function scheduleToneClick(event, level, context) {
   oscillator.stop(event.time + 0.06);
 }
 
-async function loadVoiceCountSamples(context = getAudioContext()) {
-  if (!context) {
-    return app.voiceSamples;
+function preloadVoiceCountSampleBuffer(token, url = VOICE_COUNT_SAMPLE_URLS[token]) {
+  if (!token || !url) {
+    return Promise.resolve(null);
   }
-
-  const sampleEntries = Object.entries(VOICE_COUNT_SAMPLE_URLS);
-  if (app.voiceSamples.size === sampleEntries.length) {
-    return app.voiceSamples;
+  if (app.voiceSampleBuffers.has(token)) {
+    return Promise.resolve(app.voiceSampleBuffers.get(token));
   }
-
-  await preloadVoiceCountSampleBuffers();
-
-  if (!app.voiceSamplesLoading) {
-    app.voiceSamplesLoading = Promise.all(
-      sampleEntries.map(async ([token, url]) => {
-        if (app.voiceSamples.has(token)) {
-          return;
+  if (!app.voiceSampleBufferPromises.has(token)) {
+    const bufferPromise = fetch(url)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Unable to load ${url}`);
         }
-
-        let arrayBuffer = app.voiceSampleBuffers.get(token);
-        if (!arrayBuffer) {
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`Unable to load ${url}`);
-          }
-          arrayBuffer = await response.arrayBuffer();
-          app.voiceSampleBuffers.set(token, arrayBuffer);
-        }
-
-        const audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0));
-        app.voiceSamples.set(token, audioBuffer);
+        return response.arrayBuffer();
       })
-    )
+      .then((arrayBuffer) => {
+        app.voiceSampleBuffers.set(token, arrayBuffer);
+        return arrayBuffer;
+      })
       .catch((error) => {
         console.warn(error);
-        app.voiceSamples.clear();
+        return null;
       })
       .finally(() => {
-        app.voiceSamplesLoading = null;
+        app.voiceSampleBufferPromises.delete(token);
       });
+
+    app.voiceSampleBufferPromises.set(token, bufferPromise);
   }
 
-  await app.voiceSamplesLoading;
-  return app.voiceSamples;
+  return app.voiceSampleBufferPromises.get(token);
 }
 
 function preloadVoiceCountSampleBuffers() {
@@ -1064,31 +1052,97 @@ function preloadVoiceCountSampleBuffers() {
     return Promise.resolve(app.voiceSampleBuffers);
   }
 
-  if (!app.voiceSampleBuffersLoading) {
-    app.voiceSampleBuffersLoading = Promise.all(
-      sampleEntries.map(async ([token, url]) => {
-        if (app.voiceSampleBuffers.has(token)) {
-          return;
-        }
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Unable to load ${url}`);
-        }
-
-        app.voiceSampleBuffers.set(token, await response.arrayBuffer());
-      })
+  return Promise.allSettled(
+    sampleEntries.map(([token, url]) =>
+      preloadVoiceCountSampleBuffer(token, url)
     )
+  ).then(() => app.voiceSampleBuffers);
+}
+
+function loadVoiceCountSample(context, token) {
+  if (!context || !token) {
+    return Promise.resolve(null);
+  }
+  if (app.voiceSamples.has(token)) {
+    return Promise.resolve(app.voiceSamples.get(token));
+  }
+  if (!app.voiceSamplePromises.has(token)) {
+    const samplePromise = preloadVoiceCountSampleBuffer(token)
+      .then((arrayBuffer) => {
+        if (!arrayBuffer) {
+          return null;
+        }
+        return context.decodeAudioData(arrayBuffer.slice(0));
+      })
+      .then((audioBuffer) => {
+        if (audioBuffer) {
+          app.voiceSamples.set(token, audioBuffer);
+        }
+        return audioBuffer;
+      })
       .catch((error) => {
         console.warn(error);
-        app.voiceSampleBuffers.clear();
+        return null;
       })
       .finally(() => {
-        app.voiceSampleBuffersLoading = null;
+        app.voiceSamplePromises.delete(token);
       });
+
+    app.voiceSamplePromises.set(token, samplePromise);
   }
 
-  return app.voiceSampleBuffersLoading;
+  return app.voiceSamplePromises.get(token);
+}
+
+async function loadVoiceCountSamples(context = getAudioContext()) {
+  if (!context) {
+    return app.voiceSamples;
+  }
+
+  await Promise.all(
+    Object.keys(VOICE_COUNT_SAMPLE_URLS).map((token) =>
+      loadVoiceCountSample(context, token)
+    )
+  );
+  return app.voiceSamples;
+}
+
+function getStartupVoiceCountTokens() {
+  const startupState = createDefaultState(app.state);
+  const startupEvents = createSchedule({
+    state: createDefaultState({
+      ...startupState,
+      countInBars: startupState.countInBars ? 1 : 0,
+    }),
+    bars: 1,
+    startTime: 0,
+  });
+  const tokens = [];
+
+  for (const event of startupEvents) {
+    if (getAudibleEventLevel(event, startupState.muted) === "silent") {
+      continue;
+    }
+
+    const token = getVoiceCountToken(event);
+    if (token && !tokens.includes(token)) {
+      tokens.push(token);
+    }
+    if (tokens.length >= 8) {
+      break;
+    }
+  }
+
+  return tokens.length ? tokens : ["1"];
+}
+
+function loadVoiceCountStartupSamples(context) {
+  const tokens = getStartupVoiceCountTokens();
+  return Promise.all(tokens.map((token) => loadVoiceCountSample(context, token)))
+    .then(() => {
+      loadVoiceCountSamples(context);
+      return app.voiceSamples;
+    });
 }
 
 function scheduleVoiceCount(event, level, context) {
@@ -1099,7 +1153,7 @@ function scheduleVoiceCount(event, level, context) {
 
   const sample = app.voiceSamples.get(token);
   if (!sample) {
-    loadVoiceCountSamples(context);
+    loadVoiceCountSample(context, token);
     scheduleToneClick(event, level, context);
     return;
   }
@@ -1284,7 +1338,12 @@ async function startPlayback() {
   const resumePromise = context.resume();
 
   if (app.state.soundStyle === "voice-count") {
-    loadVoiceCountSamples(context);
+    setStatus("Starting voice count");
+    render();
+    await loadVoiceCountStartupSamples(context);
+    if (!app.playing) {
+      return;
+    }
   }
 
   rebuildSchedule();
